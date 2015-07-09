@@ -1,0 +1,176 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 ; mode: python -*-
+#
+
+import getopt
+import sys, os
+from adcclient import ADCClient
+
+def usage(cli):
+    print "usage:", sys.argv[0], "[options] command",
+    print """
+options:
+  -h|--help
+  -d|--debug
+  -v|--verbose
+  -c|--config=CONFIGFILE (default: %s)
+  -u|--username=USERNAME (default: %s)
+  -p|--password=PASSWORD
+  -U|--URL=URL           (default: %s)
+command:
+  login
+  logout
+  whoami
+  get-user-list
+  get-user [USERNAME ...]
+  get-q [NUMBER ...]
+  put-a NUMBER FILENAME
+  get-a [NUMBER ...]          # test mode only
+  delete-a [NUMBER ...]       # test mode only
+  get-user-q [NUMBER ...]
+  post-user-q NUMBER FILENAME
+  put-user-q NUMBER FILENAME
+  delete-user-q [NUMBER ...]
+  get-root
+admin command:
+  create-user USERNAME PASSWORD DISPLAYNAME UID GID
+  create-users FILENAME
+  delete-user [USERNAME ...]
+  get-admin-q-all
+  get-admin-q-list
+  put-admin-q-list
+  delete-admin-q-list  *NOT IMPLEMENTED*
+  get-admin-a-all
+""" % (cli.config, cli.username, cli.url)
+
+def main():
+    def output():
+        if cli.output_file is None:
+            f = sys.stdout
+        else:
+            f = open(cli.output_file, "w")
+        if len(args[1:]) == 0:
+            f.write(resx[6]['msg']+"\n")
+        else:
+            for res in resx:
+                f.write(res[6]['msg']+"\n")
+        if cli.output_file is not None:
+            f.close()
+
+    #
+    cli = ADCClient()
+    cli.read_config()
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hdvc:u:p:U:o:", ["help","debug","verbose","config=","username=","password=","URL=","output="])
+    except getopt.GetoptError:
+        usage(cli)
+        sys.exit(2)
+    for o,a in opts:
+        #print "o=",o,"a=",a
+        if o in ("-h","--help"):
+            usage(cli)
+            sys.exit(1)
+        elif o in ("-d","--debug"):
+            cli.debug = True
+        elif o in ("-v","--verbose"):
+            cli.verbose = True
+        elif o in ("-c","--config"):
+            cli.config = a
+            cli.read_config()
+        elif o in ("-u","--username"):
+            cli.username = a
+        elif o in ("-p","--password"):
+            cli.password = a
+        elif o in ("-U","--URL"):
+            cli.url = a
+        elif o in ("-o","--output"):
+            cli.output_file = a
+        else:
+            print "Error: Unknown option:",o
+    #
+    if 0 < len(args):
+        a = args[0]
+        if a == 'login':
+            res = cli.login(args[1:])
+            print res[6]['msg']
+        elif a == 'logout':
+            res = cli.logout(args[1:])
+            print res[6]['msg']
+        elif a == 'whoami':
+            res = cli.whoami(args[1:])
+            print res[6]['msg']
+        elif a == 'get-user-list':
+            res = cli.get_user_list()
+            #print res[6]
+            for u in res[6]: print u.encode('utf-8'),
+        elif a == 'get-user':
+            res2 = cli.get_user_info(args[1:])
+            for res in res2: print res[6]['msg']
+        elif a == 'create-user':
+            res = cli.create_user(args[1:])
+            print res[6]['msg']
+        elif a == 'create-users':
+            res2 = cli.create_users(args[1])
+            for res in res2: print res[6]['msg']
+        elif a == 'delete-user':
+            res2 = cli.delete_users(args[1:])
+            for res in res2: print res[6]['msg']
+        elif a == 'get-q':
+            resx = cli.get_q(args[1:])
+            output()
+        elif a == 'get-a':
+            resx = cli.get_a(args[1:])
+            output()
+        elif a == 'delete-a':
+            for i in args[1:]:
+                res = cli.delete_a(int(i))
+                print res[6]['msg']
+        elif a == 'put-a':
+            a_num = int(args[1])
+            a_file = args[2]
+            res = cli.put_a(a_num, a_file)
+            print res[6]['msg']
+        elif a == 'get-user-q':
+            resx = cli.get_user_q(args[1:])
+            if len(args[1:]) == 0:
+                print resx[6]['msg']
+            else:
+                for res in resx:
+                    #print "status=", res[1]
+                    print res[6]['msg']
+        elif a == 'post-user-q':
+            q_num = int(args[1])
+            q_file = args[2]
+            res = cli.post_user_q(q_num, q_file)
+            print res[6]['msg']
+        elif a == 'put-user-q':
+            q_num = int(args[1])
+            q_file = args[2]
+            res = cli.put_user_q(q_num, q_file)
+            print res[6]['msg']
+        elif a == 'delete-user-q':
+            for i in args[1:]:
+                res = cli.delete_user_q(int(i))
+                print res[6]['msg']
+        elif a == 'get-admin-q-all':
+            res = cli.get_admin_q_all(args[1:])
+            print res[6]['msg']
+        elif a == 'get-admin-a-all':
+            res = cli.get_admin_a_all(args[1:])
+            print res[6]['msg']
+        elif a == 'get-admin-q-list':
+            res = cli.get_admin_q_list(args[1:])
+            print res[6]['msg']
+        elif a == 'put-admin-q-list':
+            res = cli.put_admin_q_list(args[1:])
+            print res[6]['msg']
+        elif a == 'get-root':
+            res = cli.get_root(args[1:])
+            print res[6]['msg']
+        else:
+            print "Error: Unknown command:", a
+    #
+    cli.write_config()
+
+if __name__ == "__main__":
+    main()
