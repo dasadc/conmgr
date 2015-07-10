@@ -6,7 +6,7 @@
 
     cp adcconfig.sample.py adcconfig.py
 
-SECRET_KEYとSALTを変更したときは、元のパスワードは不明なため、アカウントを作成しなおす必要がある。パスワード以外の、ユーザー名、名称、uid、gidはわかる。
+元のパスワードは不明なため、SECRET_KEYとSALTを変更したときは、アカウントを作成しなおす必要がある。ユーザー名、名称、uid、gidは既存のものがわかるが、パスワードは新規に設定しなければならない。
 
 
 # アカウント作成
@@ -49,6 +49,10 @@ Flaskのsessionを利用して、認証の仕組みを設けている。
 
 クッキーの内容は暗号化されており、その鍵は、adcconfig.pyの`SECRET_KEY`で指定することになっている。
 
+## セッション情報
+
+セッション情報は、サーバー側（データベース）ではなくクッキーに保存される。
+
 
 # Google App Engine Datastore
 
@@ -56,10 +60,10 @@ datastore.pyを参照。
 
 # セキュリティ
 
-本当は、`adccli --URL='http://das-adc.appspot.com/'` でアクセスすることが望ましい。
-- httpsでも動く
-- しかし、proxyサーバ経由だと動かない
-- 使っているpythonのライブラリがhttplib。こいつの出来が悪くて、proxyサーバさえまともに扱えず、自前で実装している
+本当は、`adccli --URL='https://das-adc.appspot.com/'` でアクセスすることが望ましい。
+- 実は、httpsでも動く。
+-- しかし、proxyサーバ経由だと動かない
+- 使っているpythonのライブラリがhttplib。これの出来が悪くて、proxyサーバさえまともに扱えず、自前で実装している
 - もっといいサードパーティのライブラリがあるらしいが、それを利用すると、ユーザーに追加インストールを強いることになってしまうので、今回は見送った。
 -- Pythonで標準で用意されているライブラリだけで動くように、adccliは作ってある
 
@@ -73,22 +77,22 @@ RESTful API風になっています。
 
     #path                            メソッド、説明
     #--------------------------------------------------------------------------
-    /                                GET   お知らせ
-    /login                           GET   ログイン画面(HTML form)
+    /                                GET    お知らせ
+    /login                           GET    ログイン画面(HTML form)
     /login                           POST
-    /logout                          GET POST
-    /whoami                          GET   自分のユーザー名を返す
-    /Q                               GET   出題の一覧リストを返す
-    /Q/all-in-zip                    GET   未実装
-    /Q/<Q-number>                    GET   出題データを返す
-    /A                               GET   すべての回答データの一覧リストを返す
+    /logout                          GET,POST
+    /whoami                          GET    自分のユーザー名を返す
+    /Q                               GET    出題の一覧リストを返す
+    /Q/all-in-zip                    GET    未実装
+    /Q/<Q-number>                    GET    出題データを返す
+    /A                               GET    すべての回答データの一覧リストを返す
     /A/<username>                    GET    回答の一覧リストを返す 本番では禁止
-    /A/<username>/Q/<Q-number>       POST   回答提出
+    /A/<username>/Q/<Q-number>       PUT    回答提出
     /A/<username>/Q/<Q-number>       GET    回答データを返す 本番では禁止
     /A/<username>/Q/<Q-number>       DELETE 回答データを削除 本番では禁止
-    /user/<username>/password        PUT   パスワード変更  未実装
+    /user/<username>/password        PUT    パスワード変更  未実装
     /user/<username>/Q/<Q-number>    PUT,POST,GET,DELETE  問題データのアクセス
-    /admin/user                      GET   ユーザー一覧リスト
+    /admin/user                      GET    ユーザー一覧リスト
     /admin/user/<username>           GET,POST,DELETE  ユーザー情報取得、ユーザーアカウント作成、削除
     /admin/Q/all                     GET    すべての問題の一覧リストを返す
     /admin/Q/list                    PUT    出題リストを作成する

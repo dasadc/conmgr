@@ -1,6 +1,7 @@
 # conmgr
 
-[DAシンポジウム2015](http://www.ipsj.or.jp/kenkyukai/event/s-da2015.html)で行う[アルゴリズムデザインコンテスト](http://www.sig-sldm.org/designcontest.html)について
+[DAシンポジウム2015](http://www.ipsj.or.jp/kenkyukai/event/s-da2015.html)で行う[アルゴリズムデザインコンテスト](http://www.sig-sldm.org/designcontest.html)にて使用するソフトウェアについて説明します。
+
 
 ## アルゴリズムデザインコンテスト参加者向け
 
