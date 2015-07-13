@@ -30,7 +30,7 @@ class Question(ndb.Model):
     date = ndb.DateTimeProperty(auto_now_add=True)
 
 class QuestionList(ndb.Model):
-    "コンテスト用の問題リスト"
+    "コンテスト用の、出題問題リスト"
     q = ndb.KeyProperty(kind=Question)
     num = ndb.IntegerProperty()
 
