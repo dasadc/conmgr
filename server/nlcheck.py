@@ -462,18 +462,27 @@ class NLCheck:
         judges = []
         for i in range(0, len(target_data)):
             if self.verbose: print "i=",i
+            r1 = False
+            r2 = False
+            r3 = False
+            r4 = False
+            r5 = False
             mat = target_data[i] # 解答の行列
             r1 = self.check_1(input_data, mat)
             if self.verbose: print "check_1", r1
-            r2 = self.check_2(input_data, mat)
-            if self.verbose: print "check_2", r2
-            xmat = self.extend_matrix(mat)
-            r3 = self.check_3(input_data, xmat)
-            if self.verbose: print "check_3", r3
-            r4 = self.check_4(xmat)
-            if self.verbose: print "check_4", r4
-            r5 = self.check_5(input_data, xmat)
-            if self.verbose: print "check_5", r5
+            if r1:
+                r2 = self.check_2(input_data, mat)
+                if self.verbose: print "check_2", r2
+                if r2:
+                    xmat = self.extend_matrix(mat)
+                    r3 = self.check_3(input_data, xmat)
+                    if self.verbose: print "check_3", r3
+                    if r3:
+                        r4 = self.check_4(xmat)
+                        if self.verbose: print "check_4", r4
+                        if r4:
+                            r5 = self.check_5(input_data, xmat)
+                            if self.verbose: print "check_5", r5
             #
             res = r1 and r2 and r3 and r4 and r5
             judges.append(res)
