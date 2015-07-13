@@ -343,7 +343,7 @@ def put_A_data(a_num, username, text):
         msg = "Error in Q data: " + q_text
         return False, msg
     judges, msg = numberlink.check_A_data(text, q_text)
-    if judges[0] == False: # 1つだけのはず
+    if len(judges)==0 or judges[0] == False: # 2つ以上にはならないはず
         msg2 = "Error in answer A%d\n" % a_num
         msg2 += msg
         return [False, msg2]
