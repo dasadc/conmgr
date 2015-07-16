@@ -184,27 +184,59 @@ def admin_A_username(username):
         text += "A%d\n" % i.anum
     return adc_response_text(text)
     
-@app.route('/A/<username>/Q/<int:a_num>', methods=['GET','DELETE'])
-def admin_A_username_anum(username, a_num):
-    "回答データを取り出す、削除する"
+@app.route('/A/<username>/Q/<int:a_num>', methods=['PUT','GET','DELETE'])
+def a_put(username, a_num):
+    "回答データを、登録する、取り出す、削除する"
+    if not authenticated():
+        return adc_response("not login yet", request_is_json(), 401)
     if not priv_admin():                        # 管理者ではない
-        if ( app.config['TEST_MODE']==False or  # 本番モード
-             not username_matched(username) ):  # ユーザ名が一致しない
+        if ( not username_matched(username) ):  # ユーザ名が一致しない
             return adc_response("permission denied", request_is_json(), 403)
-    ret, q, root = get_A_data(a_num=a_num, username=username)
+    if request.method=='PUT':
+        atext = request.data
+        result = put_A_data(a_num, username, atext)
+        if result[0]:
+            code = 200
+        else:
+            code = 403
+        return adc_response_text(result[1], code)
+    # GET, DELETEの場合
+    if app.config['TEST_MODE']==False:  # 本番モード
+        return adc_response("permission denied", request_is_json(), 403)
+    delete = True if request.method=='DELETE' else False
+    ret, result = get_or_delete_A_data(a_num=a_num, username=username, delete=delete)
     if not ret:
         return adc_response_text("no answer data found\n"+q, 404)
-    if len(q) == 0:
+    if len(result) == 0:
         return adc_response_text("no answer data found", 404)
-    text = ""
-    if request.method == 'GET':
-        for i in q: # 正常ならば1個しかないはず
-            text += i.text
-    else: # DELETEの場合
-        for i in q: # 正常ならば1個しかないはず
-            text += "DELETE A%d\n" % i.anum
-            i.key.delete()
+    text = "\n".join(result)
     return adc_response_text(text)
+
+@app.route('/A/<username>/Q/<int:a_num>/info', methods=['GET','PUT','DELETE'])
+def a_info_put(username, a_num):
+    "回答データの補足情報を、登録する、取り出す、削除する"
+    if not authenticated():
+        return adc_response("not login yet", request_is_json(), 401)
+    if not priv_admin():                        # 管理者ではない
+        if ( not username_matched(username) ):  # ユーザ名が一致しない
+            return adc_response("permission denied", request_is_json(), 403)
+    if request.method == 'PUT':
+        info = json.loads(request.data)
+        result = put_A_info(a_num, username, info)
+        if result[0]:
+            code = 200
+        else:
+            code = 403
+        return adc_response_text(result[1], code)
+    else: # GET or DELETE
+        if a_num == 0: a_num = None
+        if username == '*': username = None
+        delete = True if request.method == 'DELETE' else False
+        ret, msg, results = get_or_delete_A_info(a_num=a_num, username=username, delete=delete)
+        tmp = {'msg': msg,  'results':results }
+        body = json.dumps(tmp)
+        return adc_response_json(body)
+
 
 @app.route('/user/<username>/Q', methods=['GET'])
 def get_user_q_list(username):
@@ -265,22 +297,6 @@ def q_get_list():
     msg = get_Q_all()
     return adc_response_text(msg)
     
-
-@app.route('/A/<username>/Q/<int:a_num>', methods=['PUT'])
-def a_put(username, a_num):
-    if not authenticated():
-        return adc_response("not login yet", request_is_json(), 401)
-    if session['gid'] != 0: # 管理者以外の場合
-        if session['username'] != username: # ユーザ名チェック
-            return adc_response("permission denied", request_is_json(), 403)
-    atext = request.data
-    result = put_A_data(a_num, username, atext)
-    if result[0]:
-        code = 200
-    else:
-        code = 403
-    return adc_response_text(result[1], code)
-
 
 @app.route('/2015/', methods=['GET'])
 def root():

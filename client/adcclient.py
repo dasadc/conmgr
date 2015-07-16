@@ -283,14 +283,54 @@ class ADCClient:
                 res2.append(self.fin(res))
             return res2
 
-    def put_a(self, a_num, a_file):
+    def put_a(self, args):
         "PUT /A/<username>/Q/<Q-number>"
         self.parse_url()
+        a_num = int(args[0])
+        a_file = args[1]
         path = '/A/%s/Q/%d' % (self.username, a_num)
         with open(a_file, "r") as f:
             a_text = f.read()
         res = self.http_request('PUT', path, params=a_text, json=False)
         return self.fin(res)
+
+    def put_a_info(self, args):
+        "PUT /A/<username>/Q/<Q-number>/info"
+        self.parse_url()
+        a_num = int(args[0])
+        cpu_sec = float(args[1])
+        mem_byte = int(args[2])
+        if 3 < len(args):
+            misc_text = args[3]
+        else:
+            misc_text = None
+        path = '/A/%s/Q/%d/info' % (self.username, a_num)
+        info = {'cpu_sec': cpu_sec,
+                'mem_byte': mem_byte,
+                'misc_text': misc_text}
+        params = json.dumps(info)
+        res = self.http_request('PUT', path, params=params, json=True)
+        return self.fin(res)
+
+    def get_or_delete_a_info(self, args, delete=False):
+        """
+        GET    /A/<username>/Q/<Q-number>/info
+        DELETE /A/<username>/Q/<Q-number>/info
+        """
+        self.parse_url()
+        if 0 < len(args):
+            a_num = int(args[0])
+        else:
+            a_num = 0
+        path = '/A/%s/Q/%d/info' % (self.username, a_num)
+        method = 'DELETE' if delete else 'GET'
+        res = self.http_request(method, path, json=True)
+        return self.fin(res)
+        #print "res=",
+        #for i in range(0,len(res)): print i, " ", res[i]
+        #print "results=", res[6]['results']
+        #for i in range(0, len(res[6]['results'])): print i, " ", res[6]['results'][i]
+        #print type(res[6]['results'][0])  # <type 'dict'>
 
     def get_user_q(self, args):
         "GET /user/<username>/Q/<Q-number>"

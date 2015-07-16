@@ -19,12 +19,11 @@ def gae_datetime_JST(dt):
     dt_jst = dt_utc.astimezone(tz_jst)
     return dt_jst.strftime('%Y-%m-%d %H:%M:%S %Z%z')
 
-
-def adc_response(msg, json, code=200, json_encoded=False):
+def adc_response(msg, isjson, code=200, json_encoded=False):
     if json_encoded:
         body = msg
     else:
-        template = 'response.json' if json else 'response.html'
+        template = 'response.json' if isjson else 'response.html'
         body = render_template(template, msg=msg)
     resp = make_response(body)
     if code == 200:
@@ -34,13 +33,19 @@ def adc_response(msg, json, code=200, json_encoded=False):
     elif code == 401:
         resp.status = 'Unauthorized'
     resp.status_code = code
-    resp.headers['Content-Type'] = 'application/json' if json else 'text/html; charset=utf-8'
+    resp.headers['Content-Type'] = 'application/json' if isjson else 'text/html; charset=utf-8'
     return resp
 
 def adc_response_text(body, code=200):
     resp = make_response(body)
     resp.status_code = code
     resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
+    return resp
+
+def adc_response_json(body, code=200):
+    resp = make_response(body)
+    resp.status_code = code
+    resp.headers['Content-Type'] = 'application/json'
     return resp
 
 def adc_response_Q_data(result):
@@ -328,51 +333,131 @@ def get_A_data(a_num=None, username=None):
         userinfo = get_userinfo(username)
         if len(userinfo) != 1:
             msg = "ERROR: user not found: %s" % username
-            return [False, msg, None]
+            return False, msg, None
         root = userinfo[0].key
     query = Answer.query(ancestor=root).order(Answer.anum)
     if a_num is not None:
         query = query.filter(Answer.anum == a_num)
     q = query.fetch()
-    return [True, q, root]
-
-# def get_A_data_text(a_num, username):
-#     "データベースから回答データを取り出す"
-#     result = []
-#     ret, q, root = get_A_data(a_num, username)
-#     if ret:
-#         for i in q:
-#             result.append(i.text)
-#     return result
+    return True, q, root
 
     
 def put_A_data(a_num, username, text):
     "回答データをデータベースに格納する"
-    # 回答データのチェックをする
+    msg = ""
+    # 出題データを取り出す
     ret, q_text = get_Q_data_text(a_num)
     if not ret:
-        msg = "Error in Q data: " + q_text
+        msg = "Error in Q%d data: " % a_num + q_text
         return False, msg
-    judges, msg = numberlink.check_A_data(text, q_text)
-    if len(judges)==0 or judges[0] == False: # 2つ以上にはならないはず
-        msg2 = "Error in answer A%d\n" % a_num
-        msg2 += msg
-        return [False, msg2]
-    
-    # 重複登録しないようにチェック
+    # 重複回答していないかチェック
     ret, q, root = get_A_data(a_num, username)
     if ret==True and 0 < len(q):
-        return [False, "ERROR: duplicated answer"]
-    # 登録する
+        msg += "ERROR: duplicated answer\n";
+        return False, msg
+    # 回答データのチェックをする
+    judges, msg = numberlink.check_A_data(text, q_text)
+    if len(judges)==0 or judges[0] == False: # 2つ以上にはならないはず
+        msg += "Error in answer A%d\n" % a_num
+        check_A = False
+    else:
+        check_A = True # 正解
+    # 採点する  ★未実装
+    if check_A:
+        msg += "Get 3.141592 point [DUMMY]\n"
+    else:
+        msg += "Get 0 point [DUMMY]\n"
+    # データベースに登録する。不正解でも登録する
     a = Answer( parent = root,
                 anum = a_num,
                 text = text,
                 owner = username )
-    a.put()
-    # 採点する  ★未実装
-    msg_point = "Get 3.141592 point [DUMMY]"
-    msg += msg_point
-    return [True, msg]
+    a_key = a.put()
+    ai = AnswerInfo( parent = a_key,
+                     anum = a_num,
+                     result = msg ) # とりあえず
+    ai.put()
+    return True, msg
+
+def put_A_info(a_num, username, info):
+    "回答データの補足情報をデータベースに格納する"
+    msg = ""
+    # 回答データを取り出す。rootはUserInfoのkey、q[0]はAnswer
+    ret, q, root = get_A_data(a_num, username)
+    if ret==False or len(q)==0:
+        if ret==False: msg += q + "\n"
+        msg += "ERROR: A%d data not found" % a_num
+        return False, msg
+    # 重複登録しないようにチェック
+    query = AnswerInfo.query(ancestor=q[0].key)
+    query = query.filter(AnswerInfo.anum == a_num) # 必ず一致するはずだが
+    q2 = query.fetch()
+    if len(q2) == 0:
+        # 新規登録する
+        ai = AnswerInfo( parent = q[0].key, # Answerの下に
+                         anum = a_num,
+                         cpu_sec = info['cpu_sec'],
+                         mem_byte = info['mem_byte'],
+                         misc_text = info['misc_text'] )
+        ai.put()
+        msg += "INSERT A%d info\n" % a_num
+    else:
+        for i in q2:
+            #i.key.delete()
+            i.cpu_sec = info['cpu_sec']
+            i.mem_byte = info['mem_byte']
+            i.misc_text = info['misc_text']
+            i.put()
+            msg += "UPDATE A%d info\n" % i.anum
+            # エンティティは1個だけのはずなのでループ回数は1のはず
+    return True, msg
+
+def get_or_delete_A_data(a_num=None, username=None, delete=False):
+    "回答データをデータベースから、削除or取り出し"
+    ret, q, root = get_A_data(a_num=a_num, username=username)
+    if not ret:
+        return False, q # q==msg
+    if len(q)==0:
+        return ret, q
+    result = []
+    if delete:
+        for i in q: # 正常ならば1個しかないはず
+            get_or_delete_A_info(a_num=a_num, username=username, delete=True)
+            result.append("DELETE A%d" % i.anum)
+            i.key.delete()
+    else: # GETの場合
+        for i in q: # 正常ならば1個しかないはず
+            result.append(i.text)
+    return True, result
+
+def get_or_delete_A_info(a_num=None, username=None, delete=False):
+    "回答データの補足情報をデータベースから、削除or取り出し"
+    msg = ""
+    root = userlist_key()
+    if username is not None:
+        userinfo = get_userinfo(username)
+        if len(userinfo) != 1:
+            msg = "ERROR: user not found: %s" % username
+            return False, msg, None
+        root = userinfo[0].key
+    # AnswerInfoデータを取り出す
+    query = AnswerInfo.query(ancestor=root)
+    if a_num is not None:
+        query = query.filter(AnswerInfo.anum == a_num)
+    q = query.fetch()
+    results = []
+    num = 0
+    for i in q:
+        num += 1
+        if delete:
+            results.append({'anum': i.anum})
+            i.key.delete()
+        else:
+            results.append( i.to_dict() )
+    method = 'DELETE' if delete else 'GET'
+    a_num2 = 0 if a_num is None else a_num
+    msg += "%s A%d info %d" % (method, a_num2, num)
+    return True, msg, results
 
 def create_user(username, password, displayname, uid, gid, salt):
     "ユーザーをデータベースに登録"
@@ -399,7 +484,7 @@ def get_username_list():
 def get_userinfo(username):
     "ユーザー情報をデータベースから取り出す"
     query = UserInfo.query( ancestor = userlist_key() ).order(UserInfo.uid)
-    query = query.filter(UserInfo.username == username )
+    query = query.filter(UserInfo.username == username)
     q = query.fetch()
     return q
 

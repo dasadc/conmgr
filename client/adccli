@@ -25,6 +25,9 @@ command:
   get-user [USERNAME ...]
   get-q [NUMBER ...]
   put-a NUMBER FILENAME
+  put-a-info NUMBER CPU_SEC MEM_BYTE [MISC_TEXT]
+  get-a-info [NUMBER]
+  delete-a-info NUMBER
   get-a [NUMBER ...]          # test mode only
   delete-a [NUMBER ...]       # test mode only
   get-user-q [NUMBER ...]
@@ -126,10 +129,24 @@ def main():
                 res = cli.delete_a(int(i))
                 print res[6]['msg']
         elif a == 'put-a':
-            a_num = int(args[1])
-            a_file = args[2]
-            res = cli.put_a(a_num, a_file)
+            res = cli.put_a(args[1:])
             print res[6]['msg']
+        elif a == 'put-a-info':
+            res = cli.put_a_info(args[1:])
+            print res[6]['msg']
+        elif a == 'get-a-info':
+            res = cli.get_or_delete_a_info(args[1:], delete=False)
+            print res[6]['msg']
+            for i in res[6]['results']:
+                #print i # iはdictのはず
+                for key,value in i.iteritems():
+                    #if key == 'msg': continue
+                    print "%s:" % key.encode('utf-8'), value
+                    
+        elif a == 'delete-a-info':
+            res = cli.get_or_delete_a_info(args[1:], delete=True)
+            print res[6]['msg']
+            for i in res[6]['results']: print i
         elif a == 'get-user-q':
             resx = cli.get_user_q(args[1:])
             if len(args[1:]) == 0:

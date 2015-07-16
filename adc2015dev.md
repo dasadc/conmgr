@@ -92,6 +92,7 @@ RESTful API風になっています。
     /A/<username>/Q/<Q-number>       PUT    回答提出
     /A/<username>/Q/<Q-number>       GET    回答データを返す 本番では禁止
     /A/<username>/Q/<Q-number>       DELETE 回答データを削除 本番では禁止
+    /A/<username>/Q/<Q-number>/info  GET,PUT,DELETE 回答の補足情報にアクセス
     /user/<username>/password        PUT    パスワード変更  未実装
     /user/<username>/Q/<Q-number>    PUT,POST,GET,DELETE  問題データのアクセス
     /admin/user                      GET    ユーザー一覧リスト
