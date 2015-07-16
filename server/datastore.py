@@ -12,6 +12,10 @@ def userlist_key():
     "UserInfoのparent"
     return ndb.Key('Users', 'all')
 
+def log_key():
+    "問題データのparent"
+    return ndb.Key('Log', 'root')
+
 class UserInfo(ndb.Model):
     username = ndb.StringProperty()
     password = ndb.StringProperty()
@@ -48,3 +52,8 @@ class AnswerInfo(ndb.Model):
     mem_byte = ndb.IntegerProperty(indexed=False)
     misc_text = ndb.StringProperty(indexed=False)
     result = ndb.StringProperty() # 採点結果
+
+class Log(ndb.Model):
+    date = ndb.DateTimeProperty(auto_now_add=True)
+    username = ndb.StringProperty()
+    what = ndb.StringProperty()

@@ -10,6 +10,7 @@ from flask import Flask, request, redirect, session, escape, url_for, json, make
 import adcconfig
 import adcusers
 from adcutil import *
+import datetime
 
 app = Flask(__name__)
 app.config.from_object(adcconfig)
@@ -39,11 +40,15 @@ def request_is_json():
     else:
         return False
 
+def log_request(username):
+    log(username, request.method + " " + request.path)
+    
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if authenticated():
         session['times'] += 1
         msg = "You are already logged-in, %s, %s, %d times" % (escape(session['username']), escape(session['displayName']), session['times'])
+        log_request(session['username'])
         return adc_response(msg, request_is_json())
     if request.method == 'GET':
         return render_template('login.html')
@@ -70,11 +75,13 @@ def login():
     session['uid'] = u[3]
     session['gid'] = u[4]
     session['times'] = 1
+    log_request(session['username'])
     return adc_response("login OK", request_is_json())
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
     if authenticated():
+        log_request(session['username'])
         for i in ['login', 'username', 'displayName', 'uid', 'gid']:
             del session[i]
         return adc_response("logout OK", request_is_json())
@@ -84,6 +91,7 @@ def logout():
 @app.route('/whoami', methods=['GET'])
 def whoami():
     if authenticated():
+        log_request(session['username'])
         return adc_response(session['username'], request_is_json())
     else:
         return adc_response("not login yet", request_is_json(), 401)
@@ -95,8 +103,7 @@ def admin_user_list_get():
         return adc_response("access forbidden", request_is_json(), 403)
     res = adc_get_user_list(app.config['USERS'])
     txt = json.dumps(res)
-    #print "res=",res
-    #print "txt=",txt
+    log_request(session['username'])
     return adc_response(txt, True, json_encoded=True)
 
 @app.route('/admin/user/<username>', methods=['GET'])
@@ -104,6 +111,7 @@ def admin_user_get(username):
     if ( not authenticated() or
          (not priv_admin() and session['username'] != username) ):
         return adc_response("access forbidden", request_is_json(), 403)
+    log_request(username)
     u = adc_get_user_info(username, app.config['USERS'])
     if u is None:
         return adc_response("not found", request_is_json(), 404)
@@ -119,6 +127,7 @@ def admin_user_post(username):
     """
     if not priv_admin():
         return adc_response("access forbidden", request_is_json(), 403)
+    log_request(session['username'])
     # POSTの場合、アカウント削除
     if request.method == 'DELETE':
         ret = delete_user(username)
@@ -141,6 +150,7 @@ def admin_Q_all():
     "データベースに登録されたすべての問題の一覧リスト"
     if not priv_admin():
         return adc_response("access forbidden", request_is_json(), 403)
+    log_request(session['username'])
     msg = get_admin_Q_all()
     return adc_response_text(msg)
 
@@ -149,6 +159,7 @@ def admin_Q_list():
     "コンテストの出題リスト"
     if not priv_admin():
         return adc_response("access forbidden", request_is_json(), 403)
+    log_request(session['username'])
     if request.method == 'GET':
         msg = admin_Q_list_get()
         return adc_response_text(msg)
@@ -161,11 +172,26 @@ def admin_Q_list():
     else: # ありえない
         return adc_response_text("unknown")
 
+@app.route('/admin/log', methods=['GET','DELETE'])
+def admin_log():
+    "ログデータ"
+    if not priv_admin():
+        return adc_response("access forbidden", request_is_json(), 403)
+    return user_log_before(None, None, None)
+    
+@app.route('/admin/log/<key>/<int:val>', methods=['GET','DELETE'])
+def admin_log_before(key, val):
+    "ログデータ"
+    if not priv_admin():
+        return adc_response("access forbidden", request_is_json(), 403)
+    return user_log_before(None, key, val)
+    
 @app.route('/A', methods=['GET'])
 def admin_A_all():
     "データベースに登録されたすべての回答データの一覧リスト"
     if not priv_admin():
         return adc_response("access forbidden", request_is_json(), 403)
+    log_request(session['username'])
     msg = get_admin_A_all()
     return adc_response_text(msg)
 
@@ -182,6 +208,7 @@ def admin_A_username(username):
     text = ""
     for i in q: # 正常ならば1個しかないはず
         text += "A%d\n" % i.anum
+    log_request(username)
     return adc_response_text(text)
     
 @app.route('/A/<username>/Q/<int:a_num>', methods=['PUT','GET','DELETE'])
@@ -192,6 +219,7 @@ def a_put(username, a_num):
     if not priv_admin():                        # 管理者ではない
         if ( not username_matched(username) ):  # ユーザ名が一致しない
             return adc_response("permission denied", request_is_json(), 403)
+    log_request(username)
     if request.method=='PUT':
         atext = request.data
         result = put_A_data(a_num, username, atext)
@@ -220,6 +248,7 @@ def a_info_put(username, a_num):
     if not priv_admin():                        # 管理者ではない
         if ( not username_matched(username) ):  # ユーザ名が一致しない
             return adc_response("permission denied", request_is_json(), 403)
+    log_request(username)
     if request.method == 'PUT':
         info = json.loads(request.data)
         result = put_A_info(a_num, username, info)
@@ -246,6 +275,7 @@ def get_user_q_list(username):
     if session['gid'] != 0: # 管理者以外の場合
         if session['username'] != username: # ユーザ名チェック
             return adc_response("permission denied", request_is_json(), 403)
+    log_request(username)
     msg = get_user_Q_all(username)
     return adc_response_text(msg)
     
@@ -259,6 +289,7 @@ def user_q(username, q_num):
             return adc_response("permission denied", request_is_json(), 403)
         if q_num <= 0 or 4 <= q_num: # 問題番号の範囲チェック
             return adc_response("Q number is out of range", request_is_json(), 403)
+    log_request(username)
     if request.method == 'GET':
         result = get_user_Q_data(q_num, username)
         return adc_response_Q_data(result)
@@ -283,10 +314,54 @@ def user_q(username, q_num):
         msg = delete_user_Q_data(q_num, author=username)
         return adc_response_text(msg)
 
+@app.route('/user/<username>/alive', methods=['PUT'])
+def user_alive(username):
+    # ユーザを指定して、生きていることを報告
+    if not username_matched(username):  # ユーザ名が一致しない
+        return adc_response("permission denied", request_is_json(), 403)
+    log(username, "alive: "+request.data)
+    return adc_response_text("OK")
+
+@app.route('/user/<username>/log', methods=['GET','DELETE'])
+def user_log(username):
+    # ユーザを指定して、ログデータを返す
+    return user_log_before(username, None, None)
+
+@app.route('/user/<username>/log/<key>/<int:val>', methods=['GET','DELETE'])
+def user_log_before(username, key, val):
+    "ログデータ"
+    if not priv_admin():                    # 管理者ではない
+        if not username_matched(username):  # ユーザ名が一致しない
+            return adc_response("permission denied", request_is_json(), 403)
+    log_request(session['username']) #やめたほうがいい？
+    if key == 'days':
+        td = datetime.timedelta(days=val)
+    elif key == 'seconds':
+        td = datetime.timedelta(seconds=val)
+    elif key is None:
+        td = None
+    else:
+        return adc_response("time format error", request_is_json(), 404)
+    if request.method == 'GET':
+        msg = request.path
+        results = log_get_or_delete(username=username, when=td)
+        tmp = {'msg': msg,  'results':results }
+        body = json.dumps(tmp)
+        return adc_response_json(body)
+    else: # DELETE
+        if not priv_admin():                    # 管理者ではない
+            return adc_response("permission denied", request_is_json(), 403)
+        msg = request.path
+        results = log_get_or_delete(username=username, when=td, delete=True)
+        tmp = {'msg': msg,  'results':results }
+        body = json.dumps(tmp)
+        return adc_response_json(body)
+
 @app.route('/Q/<int:q_num>', methods=['GET'])
 def q_get(q_num):
     if not authenticated():
         return adc_response("not login yet", request_is_json(), 401)
+    log_request(session['username'])
     result = get_Q_data(q_num)
     return adc_response_Q_data(result)
 
@@ -294,12 +369,14 @@ def q_get(q_num):
 def q_get_list():
     if not authenticated():
         return adc_response("not login yet", request_is_json(), 401)
+    log_request(session['username'])
     msg = get_Q_all()
     return adc_response_text(msg)
     
 
 @app.route('/2015/', methods=['GET'])
 def root():
+    log_request('-')
     msg = r"Hello world\n"
     msg += r"Test mode: %s\n" % app.config['TEST_MODE']
     return adc_response(msg, request_is_json())

@@ -34,6 +34,9 @@ command:
   post-user-q NUMBER FILENAME
   put-user-q NUMBER FILENAME
   delete-user-q [NUMBER ...]
+  put-user-alive MSG
+  get-user-log [NUMBER (seconds|days)]
+  delete-user-log [NUMBER (seconds|days)]
   get-root
 admin command:
   create-user USERNAME PASSWORD DISPLAYNAME UID GID
@@ -44,6 +47,8 @@ admin command:
   put-admin-q-list
   delete-admin-q-list
   get-admin-a-all
+  get-log [NUMBER (seconds|days)]
+  delete-log [NUMBER (seconds|days)]
 """ % (cli.config, cli.username, cli.url)
 
 def main():
@@ -141,8 +146,7 @@ def main():
                 #print i # iはdictのはず
                 for key,value in i.iteritems():
                     #if key == 'msg': continue
-                    print "%s:" % key.encode('utf-8'), value
-                    
+                    print "%s:" % key.encode('utf-8'), value                    
         elif a == 'delete-a-info':
             res = cli.get_or_delete_a_info(args[1:], delete=True)
             print res[6]['msg']
@@ -184,9 +188,22 @@ def main():
         elif a == 'delete-admin-q-list':
             res = cli.delete_admin_q_list(args[1:])
             print res[6]['msg']
+        elif a == 'put-user-alive':
+            res = cli.put_user_alive(args[1:])
+            print res[6]['msg']
         elif a == 'get-root':
             res = cli.get_root(args[1:])
             print res[6]['msg']
+        elif a in ('get-log', 'get-user-log', 'delete-log', 'delete-user-log'):
+            res = cli.get_or_delete_log(args[1:], a)
+            delete = (a.split('-')[0] == 'delete')
+            print res[6]['msg']
+            if 'results' in res[6]:
+                for i in res[6]['results']:
+                    if delete:
+                        print "%s" % (i['date'])
+                    else:
+                        print "%s %s: %s" % (i['date'], i['username'], i['what'])
         else:
             print "Error: Unknown command:", a
     #

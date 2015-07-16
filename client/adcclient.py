@@ -181,6 +181,32 @@ class ADCClient:
         res = self.http_request('GET', '/2015/')
         return self.fin(res)
 
+    def put_user_alive(self, args):
+        self.parse_url()
+        res = self.http_request('PUT', '/user/%s/alive' % self.username, params=args[0])
+        return self.fin(res)
+
+    def get_or_delete_log(self, args, a):
+        "GET /admin/log"
+        self.parse_url()
+        if a in ('get-log', 'delete-log'):
+            path0 = '/admin'
+        else:
+            path0 = '/user/%s' % self.username
+        if a in ('delete-log', 'delete-user-log'):
+            method = 'DELETE'
+        else:
+            method = 'GET'
+        if 1 < len(args):
+            key = args[1]
+            val = int(args[0])
+            path = "%s/log/%s/%d" % (path0, key, val)
+        else:
+            path = '%s/log' % path0
+        res = self.http_request(method, path)
+        return self.fin(res)
+
+                
     def get_user_list(self):
         self.parse_url()
         res = self.http_request('GET', '/admin/user')
@@ -380,3 +406,4 @@ class ADCClient:
         path = "/A/%s/Q/%d" % (self.username, a_num)
         res = self.http_request('DELETE', path, json=False)
         return self.fin(res)
+

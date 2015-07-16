@@ -7,9 +7,9 @@ from datastore import *
 from hashlib import sha1, sha256
 from flask import make_response, render_template
 import random
+import datetime
 
 #import pytz
-#import datetime
 from tz import UTC, JST
 tz_utc = UTC()
 tz_jst = JST()
@@ -59,6 +59,36 @@ def adc_response_Q_data(result):
         for data in result:
             text += data.text # 同じ番号で、複数あるのは、重複登録の場合
     return adc_response_text(text, code)
+
+
+def log(username, what):
+    root = log_key()
+    i = Log(parent = root,
+            username = username,
+            what = what)
+    i.put()
+
+def log_get_or_delete(username=None, fetch_num=100, when=None, delete=False):
+    query = Log.query(ancestor = log_key()).order(-Log.date)
+    if username is not None:
+        query = query.filter(Log.username == username)
+    if when is not None:
+        before = datetime.datetime.now() - when
+        #print "before=", before
+        query = query.filter(Log.date > before)
+    q = query.fetch(fetch_num)
+    results = []
+    for i in q:
+        if delete:
+            tmp = { 'date': gae_datetime_JST(i.date) }
+            i.key.delete()
+        else:
+            tmp = { 'date': gae_datetime_JST(i.date),
+                    'username': i.username,
+                    'what': i.what }
+        results.append( tmp )
+    return results
+
 
 def adc_login(salt, username, password, users):
     tmp = salt + username + password

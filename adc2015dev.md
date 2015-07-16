@@ -95,14 +95,19 @@ RESTful API風になっています。
     /A/<username>/Q/<Q-number>/info  GET,PUT,DELETE 回答の補足情報にアクセス
     /user/<username>/password        PUT    パスワード変更  未実装
     /user/<username>/Q/<Q-number>    PUT,POST,GET,DELETE  問題データのアクセス
+    /user/<username>/alive           PUT    死活監視用
+    /user/<username>/log             GET,DELETE    ログデータ
+    /user/<username>/log/<key>/<number> GET,DELETE ログデータ
     /admin/user                      GET    ユーザー一覧リスト
     /admin/user/<username>           GET,POST,DELETE  ユーザー情報取得、ユーザーアカウント作成、削除
     /admin/Q/all                     GET    すべての問題の一覧リストを返す
     /admin/Q/list                    PUT    出題リストを作成する
     /admin/Q/list                    GET    出題リストを返す
     /admin/Q/list                    DELETE 出題リストを削除する
-    /score/<username>                GET  未実装
-    /score                           GET  未実装
+    /admin/log                       GET,DELETE  ログデータ
+    /admin/log/<key>/<number>        GET,DELETE  ログデータ
+    /score                           GET  スコア 未実装
+    /score/<username>                GET  スコア 未実装
 
     # 例
     #path                            メソッド
