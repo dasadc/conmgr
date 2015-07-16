@@ -251,6 +251,11 @@ class ADCClient:
         res = self.http_request('PUT', '/admin/Q/list', params="dummy", json=False)
         return self.fin(res)
 
+    def delete_admin_q_list(self, args):
+        self.parse_url()
+        res = self.http_request('DELETE', '/admin/Q/list', json=False)
+        return self.fin(res)
+
     def get_q(self, args):
         self.parse_url()
         if len(args) == 0:

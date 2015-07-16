@@ -237,6 +237,17 @@ def admin_Q_list_create():
         num += 1
     return out
 
+def admin_Q_list_delete():
+    "コンテストの出題リストを削除する"
+    root = qdata_key()
+    query = QuestionList.query(ancestor=root)
+    q = query.fetch()
+    num = 0
+    for i in q:
+        i.key.delete()
+        num += 1
+    return "DELETE %d" % num
+
 def get_Q_all():
     "問題データの一覧リストを返す"
     # query = Question.query( ancestor = qdata_key() ).order(Question.qnum)

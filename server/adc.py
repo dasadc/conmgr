@@ -144,7 +144,7 @@ def admin_Q_all():
     msg = get_admin_Q_all()
     return adc_response_text(msg)
 
-@app.route('/admin/Q/list', methods=['GET','PUT'])
+@app.route('/admin/Q/list', methods=['GET','PUT','DELETE'])
 def admin_Q_list():
     "コンテストの出題リスト"
     if not priv_admin():
@@ -152,9 +152,14 @@ def admin_Q_list():
     if request.method == 'GET':
         msg = admin_Q_list_get()
         return adc_response_text(msg)
-    if request.method == 'PUT':
+    elif request.method == 'PUT':
         msg = admin_Q_list_create()
         return adc_response_text(msg)
+    elif request.method == 'DELETE':
+        msg = admin_Q_list_delete()
+        return adc_response_text(msg)
+    else: # ありえない
+        return adc_response_text("unknown")
 
 @app.route('/A', methods=['GET'])
 def admin_A_all():

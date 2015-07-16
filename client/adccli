@@ -39,7 +39,7 @@ admin command:
   get-admin-q-all
   get-admin-q-list
   put-admin-q-list
-  delete-admin-q-list  *NOT IMPLEMENTED*
+  delete-admin-q-list
   get-admin-a-all
 """ % (cli.config, cli.username, cli.url)
 
@@ -163,6 +163,9 @@ def main():
             print res[6]['msg']
         elif a == 'put-admin-q-list':
             res = cli.put_admin_q_list(args[1:])
+            print res[6]['msg']
+        elif a == 'delete-admin-q-list':
+            res = cli.delete_admin_q_list(args[1:])
             print res[6]['msg']
         elif a == 'get-root':
             res = cli.get_root(args[1:])
