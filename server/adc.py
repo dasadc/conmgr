@@ -246,7 +246,7 @@ def a_info_put(username, a_num):
     if not authenticated():
         return adc_response("not login yet", request_is_json(), 401)
     if not priv_admin():                        # 管理者ではない
-        if ( not username_matched(username) ):  # ユーザ名が一致しない
+        if not username_matched(username):      # ユーザ名が一致しない
             return adc_response("permission denied", request_is_json(), 403)
     log_request(username)
     if request.method == 'PUT':
@@ -317,8 +317,9 @@ def user_q(username, q_num):
 @app.route('/user/<username>/alive', methods=['PUT'])
 def user_alive(username):
     # ユーザを指定して、生きていることを報告
-    if not username_matched(username):  # ユーザ名が一致しない
-        return adc_response("permission denied", request_is_json(), 403)
+    if not priv_admin():                        # 管理者ではない
+        if not username_matched(username):      # ユーザ名が一致しない
+            return adc_response("permission denied", request_is_json(), 403)
     log(username, "alive: "+request.data)
     return adc_response_text("OK")
 
