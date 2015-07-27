@@ -38,6 +38,9 @@ class QuestionList(ndb.Model):
     q = ndb.KeyProperty(kind=Question)
     num = ndb.IntegerProperty()
 
+class QuestionListText(ndb.Model):
+    text = ndb.StringProperty(indexed=False)
+    
 class Answer(ndb.Model):
     "回答データ"
     anum = ndb.IntegerProperty(indexed=True)
@@ -57,3 +60,8 @@ class Log(ndb.Model):
     date = ndb.DateTimeProperty(auto_now_add=True)
     username = ndb.StringProperty()
     what = ndb.StringProperty()
+
+class TimeKeeper(ndb.Model):
+    lastUpdate = ndb.DateTimeProperty()
+    state = ndb.StringProperty()
+    
