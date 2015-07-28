@@ -53,14 +53,19 @@ class Answer(ndb.Model):
     text = ndb.StringProperty(indexed=False)
     owner = ndb.StringProperty(indexed=True)
     date = ndb.DateTimeProperty(auto_now_add=True)
-
-class AnswerInfo(ndb.Model):
-    "回答データの補足情報"
-    anum = ndb.IntegerProperty(indexed=True)
+    # 回答データの補足情報
     cpu_sec = ndb.FloatProperty(indexed=False)
     mem_byte = ndb.IntegerProperty(indexed=False)
     misc_text = ndb.StringProperty(indexed=False)
     result = ndb.StringProperty() # 採点結果
+
+# class AnswerInfo(ndb.Model):
+#     "回答データの補足情報"
+#     anum = ndb.IntegerProperty(indexed=True)
+#     cpu_sec = ndb.FloatProperty(indexed=False)
+#     mem_byte = ndb.IntegerProperty(indexed=False)
+#     misc_text = ndb.StringProperty(indexed=False)
+#     result = ndb.StringProperty() # 採点結果
 
 class Log(ndb.Model):
     date = ndb.DateTimeProperty(auto_now_add=True)

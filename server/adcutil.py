@@ -372,7 +372,11 @@ def get_admin_A_all():
 
     
 def get_A_data(a_num=None, username=None):
-    "データベースから回答データを取り出す"
+    """
+    データベースから回答データを取り出す。
+    a_numがNoneのとき、複数のデータを返す。
+    a_numが数値のとき、その数値のデータを1つだけ返す。存在しないときはNone。
+    """
     if username is None:
         root = userlist_key()
     else:
@@ -384,7 +388,8 @@ def get_A_data(a_num=None, username=None):
     if a_num is not None:
         a = ndb.Key(Answer, str(a_num), parent=root).get()
         return True, a, root
-    query = Answer.query(ancestor=root).order(Answer.anum)
+    #query = Answer.query(ancestor=root).order(Answer.anum)
+    query = Answer.query(ancestor=root)
     #if a_num is not None:
     #    query = query.filter(Answer.anum == a_num)
     q = query.fetch()
@@ -421,46 +426,53 @@ def put_A_data(a_num, username, text):
                 id = str(a_num),
                 anum = a_num,
                 text = text,
-                owner = username )
+                owner = username,
+                result = msg )
     a_key = a.put()
-    ai = AnswerInfo( parent = a_key,
-                     id = str(a_num),
-                     anum = a_num,
-                     result = msg ) # とりあえず
-    ai.put()
+    # ai = AnswerInfo( parent = a_key,
+    #                  id = str(a_num),
+    #                  anum = a_num,
+    #                  result = msg ) # とりあえず
+    # ai.put()
     return True, msg
 
 def put_A_info(a_num, username, info):
     "回答データの補足情報をデータベースに格納する"
     msg = ""
-    # 回答データを取り出す。rootはUserInfoのkey、q[0]はAnswer
-    ret, q, root = get_A_data(a_num, username)
-    if ret==False or q is None:
-        if ret==False: msg += q + "\n"
+    # 回答データを取り出す。rootはUserInfoのkey、aはAnswer
+    ret, a, root = get_A_data(a_num, username)
+    if ret==False or a is None:
+        if ret==False: msg += a + "\n"
         msg += "ERROR: A%d data not found" % a_num
         return False, msg
-    # 重複登録しないようにチェック
-    ai = ndb.Key(AnswerInfo, str(a_num), parent=q.key).get()
-    #query = AnswerInfo.query(ancestor=q.key)
-    #query = query.filter(AnswerInfo.anum == a_num) # 必ず一致するはずだが
-    #q2 = query.fetch()
-    if ai is None:
-        # 新規登録する
-        ai = AnswerInfo( parent = q[0].key, # Answerの下に
-                         id = str(a_num),
-                         anum = a_num,
-                         cpu_sec = info['cpu_sec'],
-                         mem_byte = info['mem_byte'],
-                         misc_text = info['misc_text'] )
-        ai.put()
-        msg += "INSERT A%d info\n" % a_num
-    else:
-        ai.cpu_sec = info['cpu_sec']
-        ai.mem_byte = info['mem_byte']
-        ai.misc_text = info['misc_text']
-        ai.put()
-        msg += "UPDATE A%d info\n" % a_num
+    a.cpu_sec = info['cpu_sec']
+    a.mem_byte = info['mem_byte']
+    a.misc_text = info['misc_text']
+    a.put()
+    msg += "UPDATE A%d info\n" % a_num
     return True, msg
+    # # 重複登録しないようにチェック
+    # ai = ndb.Key(AnswerInfo, str(a_num), parent=q.key).get()
+    # #query = AnswerInfo.query(ancestor=q.key)
+    # #query = query.filter(AnswerInfo.anum == a_num) # 必ず一致するはずだが
+    # #q2 = query.fetch()
+    # if ai is None:
+    #     # 新規登録する
+    #     ai = AnswerInfo( parent = q[0].key, # Answerの下に
+    #                      id = str(a_num),
+    #                      anum = a_num,
+    #                      cpu_sec = info['cpu_sec'],
+    #                      mem_byte = info['mem_byte'],
+    #                      misc_text = info['misc_text'] )
+    #     ai.put()
+    #     msg += "INSERT A%d info\n" % a_num
+    # else:
+    #     ai.cpu_sec = info['cpu_sec']
+    #     ai.mem_byte = info['mem_byte']
+    #     ai.misc_text = info['misc_text']
+    #     ai.put()
+    #     msg += "UPDATE A%d info\n" % a_num
+    # return True, msg
 
 def get_or_delete_A_data(a_num=None, username=None, delete=False):
     "回答データをデータベースから、削除or取り出し"
@@ -493,36 +505,63 @@ def get_or_delete_A_data(a_num=None, username=None, delete=False):
 def get_or_delete_A_info(a_num=None, username=None, delete=False):
     "回答データの補足情報をデータベースから、削除or取り出し"
     msg = ""
-    root = userlist_key()
-    if username is not None:
-        userinfo = get_userinfo(username)
-        if userinfo is None:
-            msg = "ERROR: user not found: %s" % username
-            return False, msg, None
-        root = userinfo.key
-    # AnswerInfoデータを取り出す
+    r, a, root = get_A_data(a_num, username)
+    if not r:
+        return False, a, None
     if a_num is None:
-        query = AnswerInfo.query(ancestor=root)
-        q = query.fetch()
+        q = a
     else:
-        ai = ndb.Key(AnswerInfo, str(a_num), parent=root).get()
-        if ai is None:
-            q = []
-        else:
-            q = [ai] # 番号を指定したので、1つだけ
+        q = [a]
     results = []
     num = 0
     for i in q:
         num += 1
         if delete:
             results.append({'anum': i.anum})
-            i.key.delete()
+            i.cpu_sec = None
+            i.mem_byte = None
+            i.misc_text = None
+            i.put()
         else:
-            results.append( i.to_dict() )
+            tmp = i.to_dict()
+            del tmp['text']
+            results.append( tmp )
     method = 'DELETE' if delete else 'GET'
     a_num2 = 0 if a_num is None else a_num
     msg += "%s A%d info %d" % (method, a_num2, num)
     return True, msg, results
+
+    # if username is None:
+    #     root = userlist_key()
+    # else:
+    #     userinfo = get_userinfo(username)
+    #     if userinfo is None:
+    #         msg = "ERROR: user not found: %s" % username
+    #         return False, msg, None
+    #     root = userinfo.key
+    # # AnswerInfoデータを取り出す
+    # if a_num is None:
+    #     query = AnswerInfo.query(ancestor=root)
+    #     q = query.fetch()
+    # else:
+    #     ai = ndb.Key(AnswerInfo, str(a_num), parent=root).get()
+    #     if ai is None:
+    #         q = []
+    #     else:
+    #         q = [ai] # 番号を指定したので、1つだけ
+    # results = []
+    # num = 0
+    # for i in q:
+    #     num += 1
+    #     if delete:
+    #         results.append({'anum': i.anum})
+    #         i.key.delete()
+    #     else:
+    #         results.append( i.to_dict() )
+    # method = 'DELETE' if delete else 'GET'
+    # a_num2 = 0 if a_num is None else a_num
+    # msg += "%s A%d info %d" % (method, a_num2, num)
+    # return True, msg, results
 
 def create_user(username, password, displayname, uid, gid, salt):
     "ユーザーをデータベースに登録"
