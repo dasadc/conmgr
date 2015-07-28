@@ -217,7 +217,7 @@ def admin_A_all():
         return adc_response_text(msg)
     else:
         ret,result = get_or_delete_A_data(delete=True)
-        print "ret=",ret," result=",result
+        #print "ret=",ret," result=",result
         msg = "\n".join(result)
         return adc_response_text(msg)
         
@@ -246,8 +246,9 @@ def a_put(username, a_num):
     if not priv_admin():                        # 管理者ではない
         if ( not username_matched(username) ):  # ユーザ名が一致しない
             return adc_response("permission denied", request_is_json(), 403)
-    if g.state != 'Aup':
-        return adc_response("deadline passed", request_is_json(), 503)
+    if not priv_admin():
+        if g.state != 'Aup':
+            return adc_response("deadline passed", request_is_json(), 503)
     log_request(username)
     if request.method=='PUT':
         atext = request.data
@@ -277,8 +278,9 @@ def a_info_put(username, a_num):
     if not priv_admin():                        # 管理者ではない
         if not username_matched(username):      # ユーザ名が一致しない
             return adc_response("permission denied", request_is_json(), 403)
-    if g.state != 'Aup':
-        return adc_response("deadline passed", request_is_json(), 503)
+    if not priv_admin():
+        if g.state != 'Aup':
+            return adc_response("deadline passed", request_is_json(), 503)
     log_request(username)
     if request.method == 'PUT':
         info = json.loads(request.data)
