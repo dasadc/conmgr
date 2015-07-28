@@ -492,6 +492,8 @@ def root():
     if authenticated() and not request_is_json():
         log_request(session['username'])
         return cmd_panel(session['username'])
+    if not authenticated() and from_browser():
+        return redirect(url_for('login'))
     log_request('-')
     msg = r"Hello world\n"
     msg += r"Test mode: %s\n" % app.config['TEST_MODE']
