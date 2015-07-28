@@ -183,19 +183,6 @@ def get_Q_data(q_num, year=2015, fetch_num=5):
     if qn < 0 or len(qla.qs) <= qn:
         return None
     return qla.qs[q_num-1].get()
-    # key = ndb.Key(QuestionList, str(q_num), parent=qdata_key())
-    # ql = key.get()
-    # if ql is None:
-    #     return None
-    # return ql.q.get()
-    #query = QuestionList.query(ancestor=qdata_key())
-    #query = query.filter(QuestionList.num==q_num)
-    #q = query.fetch()
-    #result = []
-    #for i in q: # 正常ならば1つだけのはず
-    #    j = i.q.get() # Questionエンティティ
-    #    result.append(j)
-    #return result
 
 def get_Q_data_text(q_num, year=2015, fetch_num=5):
     "問題のテキストを返す"
@@ -217,11 +204,6 @@ def get_user_Q_data(q_num, author, year=2015, fetch_num=99):
         root = userinfo.key
     key = ndb.Key(Question, str(q_num), parent=root)
     return key.get()
-    #query = Question.query( ancestor = root ).order(Question.qnum)
-    #query = query.filter( ndb.AND(Question.qnum == q_num,
-    #                              Question.author == author) )
-    #q = query.fetch(fetch_num)
-    #return q # qはリスト
 
 def get_admin_Q_all():
     "データベースに登録されたすべての問題の一覧リスト"
@@ -242,19 +224,6 @@ def admin_Q_list_get():
         return ''
     else:
         return qla.text_admin
-    # qlt = ndb.Key(QuestionListText, "admin", parent=qdata_key()).get()
-    # if qlt is None:
-    #     return ""
-    # else:
-    #     return qlt.text
-    # root = qdata_key()
-    # query = QuestionList.query(ancestor=root).order(QuestionList.num)
-    # out = ""
-    # q = query.fetch()
-    # for i in q:
-    #     j = i.q.get()
-    #     out += "%d %s %d" % (i.num, j.author, j.qnum) + "\n"
-    # return out
 
 def admin_Q_list_create():
     "コンテスト用の出題リストを作成する"
@@ -276,8 +245,6 @@ def admin_Q_list_create():
     qs = []
     for i in qlist:
         qs.append(i[2])
-        #eq = QuestionList( parent=root, id=str(num), q=i[2], num=num )
-        #eq.put()
         out_admin += "Q%d %s %d\n" % (num, i[1], i[0])
         out_user  += "Q%d\n" % num
         num += 1
@@ -285,11 +252,6 @@ def admin_Q_list_create():
     qla = QuestionListAll.get_or_insert('master', parent=root, qs=qs, text_admin=out_admin, text_user=out_user)
     if qla.text_admin != out_admin:
         out += "Already inserted\n"
-    #出題リストを登録しておく
-    #qltu = QuestionListText(parent=root, text=out_user, id="user")
-    #qltu.put()
-    #qlta = QuestionListText(parent=root, text=out_admin, id="admin")
-    #qlta.put()
     return out
 
 def admin_Q_list_delete():
@@ -297,15 +259,6 @@ def admin_Q_list_delete():
     root = qdata_key()
     ndb.Key(QuestionListAll, 'master', parent=root).delete()
     return "DELETE Q-list"
-    #ndb.Key(QuestionListText, "user", parent=root).delete()
-    #ndb.Key(QuestionListText, "admin", parent=root).delete()
-    # query = QuestionList.query(ancestor=root)
-    # q = query.fetch()
-    # num = 0
-    # for i in q:
-    #     i.key.delete()
-    #     num += 1
-    # return "DELETE %d" % num
 
 def get_Q_all():
     "問題データの一覧リストを返す"
@@ -314,27 +267,12 @@ def get_Q_all():
         return ''
     else:
         return qla.text_user
-    # qlt = ndb.Key(QuestionListText, "user", parent=qdata_key()).get()
-    # if qlt is None:
-    #     return ""
-    # else:
-    #     return qlt.text
-    # query = QuestionList.query(ancestor=qdata_key()).order(QuestionList.num)
-    # q = query.fetch()
-    # num = len(q)
-    # out = "" #out = str(num) + "\n"
-    # for i in q:
-    #     out += "Q%d\n" % i.num
-    #     #j = i.q.get() # Questionエンティティ
-    #     #out += "Q%02d SIZE %dX%d LINE_NUM %d (%s)\n" % (j.qnum, j.cols, j.rows, j.linenum, j.author)
-    # return out
-    
 
 def get_user_Q_all(author):
     "authorを指定して、問題データの一覧リストを返す"
     userinfo = get_userinfo(author)
     if userinfo is None:
-        root = qdata_key(year)
+        root = qdata_key()
     else:
         root = userinfo.key
     query = Question.query( ancestor = root ).order(Question.qnum)
@@ -361,7 +299,8 @@ def delete_user_Q_data(q_num, author, year=2015):
 
 def get_admin_A_all():
     "データベースに登録されたすべての回答データの一覧リスト"
-    query = Answer.query(ancestor=userlist_key()).order(Answer.owner, Answer.anum)
+    #query = Answer.query(ancestor=userlist_key()).order(Answer.owner, Answer.anum)
+    query = Answer.query(ancestor=userlist_key())
     q = query.fetch()
     num = len(q)
     out = str(num) + "\n"
@@ -429,11 +368,6 @@ def put_A_data(a_num, username, text):
                 owner = username,
                 result = msg )
     a_key = a.put()
-    # ai = AnswerInfo( parent = a_key,
-    #                  id = str(a_num),
-    #                  anum = a_num,
-    #                  result = msg ) # とりあえず
-    # ai.put()
     return True, msg
 
 def put_A_info(a_num, username, info):
@@ -451,28 +385,6 @@ def put_A_info(a_num, username, info):
     a.put()
     msg += "UPDATE A%d info\n" % a_num
     return True, msg
-    # # 重複登録しないようにチェック
-    # ai = ndb.Key(AnswerInfo, str(a_num), parent=q.key).get()
-    # #query = AnswerInfo.query(ancestor=q.key)
-    # #query = query.filter(AnswerInfo.anum == a_num) # 必ず一致するはずだが
-    # #q2 = query.fetch()
-    # if ai is None:
-    #     # 新規登録する
-    #     ai = AnswerInfo( parent = q[0].key, # Answerの下に
-    #                      id = str(a_num),
-    #                      anum = a_num,
-    #                      cpu_sec = info['cpu_sec'],
-    #                      mem_byte = info['mem_byte'],
-    #                      misc_text = info['misc_text'] )
-    #     ai.put()
-    #     msg += "INSERT A%d info\n" % a_num
-    # else:
-    #     ai.cpu_sec = info['cpu_sec']
-    #     ai.mem_byte = info['mem_byte']
-    #     ai.misc_text = info['misc_text']
-    #     ai.put()
-    #     msg += "UPDATE A%d info\n" % a_num
-    # return True, msg
 
 def get_or_delete_A_data(a_num=None, username=None, delete=False):
     "回答データをデータベースから、削除or取り出し"
@@ -482,24 +394,19 @@ def get_or_delete_A_data(a_num=None, username=None, delete=False):
     if q is None:
         return ret, []
     result = []
+    if a_num is None: # a_num==Noneのとき、データが複数個になる
+        q2 = q
+    else:
+        q2 = [q]
     if delete:
         get_or_delete_A_info(a_num=a_num, username=username, delete=True)
-        if a_num is None:
-            for i in q: # a_num==Noneのとき複数個になる
-                result.append("DELETE A%d" % i.anum)
-                i.key.delete()
-        else: # a_numが指定されたとき
-            result.append("DELETE A%d" % a_num)
-            q.key.delete()
-            #★★★ここの処理は汚い★★★
-        # for i in q: # 正常ならば1個しかないはず
-        #     get_or_delete_A_info(a_num=a_num, username=username, delete=True)
-        #     result.append("DELETE A%d" % i.anum)
-        #     i.key.delete()
-    else: # GETの場合。q_numはNoneではないはず
-        result.append(q.text)
-        #for i in q: # 正常ならば1個しかないはず
-        #    result.append(i.text)
+        for i in q2:
+            result.append("DELETE A%d" % i.anum)
+            i.key.delete()
+    else: # GETの場合
+        for i in q2:
+            result.append("GET A%d" % i.anum)
+            result.append(i.text)
     return True, result
 
 def get_or_delete_A_info(a_num=None, username=None, delete=False):
@@ -511,6 +418,9 @@ def get_or_delete_A_info(a_num=None, username=None, delete=False):
     if a_num is None:
         q = a
     else:
+        if a is None:
+            msg += "A%d not found" % a_num
+            return True, msg, []
         q = [a]
     results = []
     num = 0
@@ -530,38 +440,6 @@ def get_or_delete_A_info(a_num=None, username=None, delete=False):
     a_num2 = 0 if a_num is None else a_num
     msg += "%s A%d info %d" % (method, a_num2, num)
     return True, msg, results
-
-    # if username is None:
-    #     root = userlist_key()
-    # else:
-    #     userinfo = get_userinfo(username)
-    #     if userinfo is None:
-    #         msg = "ERROR: user not found: %s" % username
-    #         return False, msg, None
-    #     root = userinfo.key
-    # # AnswerInfoデータを取り出す
-    # if a_num is None:
-    #     query = AnswerInfo.query(ancestor=root)
-    #     q = query.fetch()
-    # else:
-    #     ai = ndb.Key(AnswerInfo, str(a_num), parent=root).get()
-    #     if ai is None:
-    #         q = []
-    #     else:
-    #         q = [ai] # 番号を指定したので、1つだけ
-    # results = []
-    # num = 0
-    # for i in q:
-    #     num += 1
-    #     if delete:
-    #         results.append({'anum': i.anum})
-    #         i.key.delete()
-    #     else:
-    #         results.append( i.to_dict() )
-    # method = 'DELETE' if delete else 'GET'
-    # a_num2 = 0 if a_num is None else a_num
-    # msg += "%s A%d info %d" % (method, a_num2, num)
-    # return True, msg, results
 
 def create_user(username, password, displayname, uid, gid, salt):
     "ユーザーをデータベースに登録"
@@ -589,12 +467,8 @@ def get_username_list():
 
 def get_userinfo(username):
     "ユーザー情報をデータベースから取り出す"
-    #query = UserInfo.query( ancestor = userlist_key() ).order(UserInfo.uid)
-    #query = query.filter(UserInfo.username == username)
-    #q = query.fetch()
     key = ndb.Key(UserInfo, username, parent=userlist_key())
     info = key.get()
-    #print "get_userinfo: ",info, "username=",username, "key=", key
     return info
 
 def delete_user(username):

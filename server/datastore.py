@@ -33,20 +33,12 @@ class Question(ndb.Model):
     author = ndb.StringProperty(indexed=True)
     date = ndb.DateTimeProperty(auto_now_add=True)
 
-# class QuestionList(ndb.Model):
-#     "コンテスト用の、出題問題リスト"
-#     q = ndb.KeyProperty(kind=Question)
-#     num = ndb.IntegerProperty()
-
 class QuestionListAll(ndb.Model):
     "コンテスト用の、出題問題リスト。Repeated Propetiyにしてみた"
     qs = ndb.KeyProperty(kind=Question, repeated=True)
     text_admin = ndb.StringProperty('a', indexed=False)
     text_user = ndb.StringProperty('u', indexed=False)
 
-# class QuestionListText(ndb.Model):
-#     text = ndb.StringProperty(indexed=False)
-    
 class Answer(ndb.Model):
     "回答データ"
     anum = ndb.IntegerProperty(indexed=True)
@@ -58,14 +50,6 @@ class Answer(ndb.Model):
     mem_byte = ndb.IntegerProperty(indexed=False)
     misc_text = ndb.StringProperty(indexed=False)
     result = ndb.StringProperty() # 採点結果
-
-# class AnswerInfo(ndb.Model):
-#     "回答データの補足情報"
-#     anum = ndb.IntegerProperty(indexed=True)
-#     cpu_sec = ndb.FloatProperty(indexed=False)
-#     mem_byte = ndb.IntegerProperty(indexed=False)
-#     misc_text = ndb.StringProperty(indexed=False)
-#     result = ndb.StringProperty() # 採点結果
 
 class Log(ndb.Model):
     date = ndb.DateTimeProperty(auto_now_add=True)
