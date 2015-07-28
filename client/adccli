@@ -47,6 +47,7 @@ admin command:
   put-admin-q-list
   delete-admin-q-list
   get-admin-a-all
+  delete-admin-a-all
   get-log [NUMBER (seconds|days)]
   delete-log [NUMBER (seconds|days)]
 """ % (cli.config, cli.username, cli.url)
@@ -178,6 +179,9 @@ def main():
             print res[6]['msg']
         elif a == 'get-admin-a-all':
             res = cli.get_admin_a_all(args[1:])
+            print res[6]['msg']
+        elif a == 'delete-admin-a-all':
+            res = cli.delete_admin_a_all(args[1:])
             print res[6]['msg']
         elif a == 'get-admin-q-list':
             res = cli.get_admin_q_list(args[1:])

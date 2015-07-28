@@ -6,11 +6,12 @@
 #
 # 一応、RESTful Web APIのつもり
 
-from flask import Flask, request, redirect, session, escape, url_for, json, make_response, render_template
+from flask import Flask, request, redirect, session, escape, url_for, json, make_response, render_template, g
 import adcconfig
 import adcusers
 from adcutil import *
 import datetime
+import timekeeper
 
 app = Flask(__name__)
 app.config.from_object(adcconfig)
@@ -42,7 +43,25 @@ def request_is_json():
 
 def log_request(username):
     log(username, request.method + " " + request.path)
-    
+
+@app.before_request
+def before_request():
+    new_state, old_state = timekeeper.check()
+    if new_state != old_state: # 状態遷移したとき
+        if new_state == 'Qup':
+            # 出題リストを削除する
+            msg = admin_Q_list_delete()
+            log('auto', msg)
+            # 回答データを削除する
+            get_or_delete_A_data(delete=True)
+            log('auto', 'delete A all')
+        if new_state == 'im1':
+            # 出題リストを決める
+            msg = admin_Q_list_create()
+            log('auto', 'admin_Q_list_create')
+        
+    g.state = new_state
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if authenticated():
@@ -102,6 +121,7 @@ def admin_user_list_get():
     if not authenticated():
         return adc_response("access forbidden", request_is_json(), 403)
     res = adc_get_user_list(app.config['USERS'])
+    res.sort()
     txt = json.dumps(res)
     log_request(session['username'])
     return adc_response(txt, True, json_encoded=True)
@@ -186,14 +206,21 @@ def admin_log_before(key, val):
         return adc_response("access forbidden", request_is_json(), 403)
     return user_log_before(None, key, val)
     
-@app.route('/A', methods=['GET'])
+@app.route('/A', methods=['GET','DELETE'])
 def admin_A_all():
     "データベースに登録されたすべての回答データの一覧リスト"
     if not priv_admin():
         return adc_response("access forbidden", request_is_json(), 403)
     log_request(session['username'])
-    msg = get_admin_A_all()
-    return adc_response_text(msg)
+    if request.method=='GET':
+        msg = get_admin_A_all()
+        return adc_response_text(msg)
+    else:
+        ret,result = get_or_delete_A_data(delete=True)
+        print "ret=",ret," result=",result
+        msg = "\n".join(result)
+        return adc_response_text(msg)
+        
 
 @app.route('/A/<username>', methods=['GET'])
 def admin_A_username(username):
@@ -219,6 +246,8 @@ def a_put(username, a_num):
     if not priv_admin():                        # 管理者ではない
         if ( not username_matched(username) ):  # ユーザ名が一致しない
             return adc_response("permission denied", request_is_json(), 403)
+    if g.state != 'Aup':
+        return adc_response("deadline passed", request_is_json(), 503)
     log_request(username)
     if request.method=='PUT':
         atext = request.data
@@ -234,9 +263,9 @@ def a_put(username, a_num):
     delete = True if request.method=='DELETE' else False
     ret, result = get_or_delete_A_data(a_num=a_num, username=username, delete=delete)
     if not ret:
-        return adc_response_text("no answer data found\n"+q, 404)
+        return adc_response_text("answer data A%d not found\n" % a_num, 404)
     if len(result) == 0:
-        return adc_response_text("no answer data found", 404)
+        return adc_response_text("answer data A%d not found" % a_num, 404)
     text = "\n".join(result)
     return adc_response_text(text)
 
@@ -248,6 +277,8 @@ def a_info_put(username, a_num):
     if not priv_admin():                        # 管理者ではない
         if not username_matched(username):      # ユーザ名が一致しない
             return adc_response("permission denied", request_is_json(), 403)
+    if g.state != 'Aup':
+        return adc_response("deadline passed", request_is_json(), 503)
     log_request(username)
     if request.method == 'PUT':
         info = json.loads(request.data)
@@ -281,14 +312,15 @@ def get_user_q_list(username):
     
 @app.route('/user/<username>/Q/<int:q_num>', methods=['GET','PUT','POST','DELETE'])
 def user_q(username, q_num):
-    # ユーザを指定して、問題データを、ダウンロード、アップロード、削除
-    if not authenticated():
-        return adc_response("not login yet", request_is_json(), 401)
-    if session['gid'] != 0: # 管理者以外の場合
-        if session['username'] != username: # ユーザ名チェック
+    "ユーザを指定して、問題データを、ダウンロード、アップロード、削除"
+    if not priv_admin(): # 管理者以外の場合
+        if not username_matched(username): # ユーザ名チェック
             return adc_response("permission denied", request_is_json(), 403)
         if q_num <= 0 or 4 <= q_num: # 問題番号の範囲チェック
             return adc_response("Q number is out of range", request_is_json(), 403)
+    if not priv_admin():
+        if g.state != 'Qup':
+            return adc_response("deadline passed", request_is_json(), 503)
     log_request(username)
     if request.method == 'GET':
         result = get_user_Q_data(q_num, username)

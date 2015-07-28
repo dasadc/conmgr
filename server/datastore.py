@@ -6,7 +6,7 @@ from google.appengine.ext import ndb
 
 def qdata_key(year=2015):
     "問題データのparent"
-    return ndb.Key('Qdata', year)
+    return ndb.Key('Qdata', str(year))
 
 def userlist_key():
     "UserInfoのparent"
@@ -33,13 +33,19 @@ class Question(ndb.Model):
     author = ndb.StringProperty(indexed=True)
     date = ndb.DateTimeProperty(auto_now_add=True)
 
-class QuestionList(ndb.Model):
-    "コンテスト用の、出題問題リスト"
-    q = ndb.KeyProperty(kind=Question)
-    num = ndb.IntegerProperty()
+# class QuestionList(ndb.Model):
+#     "コンテスト用の、出題問題リスト"
+#     q = ndb.KeyProperty(kind=Question)
+#     num = ndb.IntegerProperty()
 
-class QuestionListText(ndb.Model):
-    text = ndb.StringProperty(indexed=False)
+class QuestionListAll(ndb.Model):
+    "コンテスト用の、出題問題リスト。Repeated Propetiyにしてみた"
+    qs = ndb.KeyProperty(kind=Question, repeated=True)
+    text_admin = ndb.StringProperty('a', indexed=False)
+    text_user = ndb.StringProperty('u', indexed=False)
+
+# class QuestionListText(ndb.Model):
+#     text = ndb.StringProperty(indexed=False)
     
 class Answer(ndb.Model):
     "回答データ"
@@ -64,4 +70,3 @@ class Log(ndb.Model):
 class TimeKeeper(ndb.Model):
     lastUpdate = ndb.DateTimeProperty()
     state = ndb.StringProperty()
-    

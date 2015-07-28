@@ -267,6 +267,11 @@ class ADCClient:
         res = self.http_request('GET', '/A')
         return self.fin(res)
 
+    def delete_admin_a_all(self, args):
+        self.parse_url()
+        res = self.http_request('DELETE', '/A')
+        return self.fin(res)
+
     def get_admin_q_list(self, args):
         self.parse_url()
         res = self.http_request('GET', '/admin/Q/list')

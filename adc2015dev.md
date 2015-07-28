@@ -88,6 +88,7 @@ RESTful API風になっています。
     /Q/all-in-zip                    GET    未実装
     /Q/<Q-number>                    GET    出題データを返す
     /A                               GET    すべての回答データの一覧リストを返す
+    /A                               DELETE すべての回答データを削除する
     /A/<username>                    GET    回答の一覧リストを返す 本番では禁止
     /A/<username>/Q/<Q-number>       PUT    回答提出
     /A/<username>/Q/<Q-number>       GET    回答データを返す 本番では禁止
