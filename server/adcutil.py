@@ -8,16 +8,7 @@ from hashlib import sha1, sha256
 from flask import make_response, render_template
 import random
 import datetime
-
-#import pytz
-from tz import UTC, JST
-tz_utc = UTC()
-tz_jst = JST()
-def gae_datetime_JST(dt):
-    "Google App Engineのtzinfo無しdatetimeを、UTCと見なしてそれをJSTに変換したのち、タイムスタンプ文字列として返す"
-    dt_utc = dt.replace(tzinfo=tz_utc)
-    dt_jst = dt_utc.astimezone(tz_jst)
-    return dt_jst.strftime('%Y-%m-%d %H:%M:%S %Z%z')
+from tz import gae_datetime_JST
 
 def adc_response(msg, isjson, code=200, json_encoded=False):
     if json_encoded:
@@ -89,14 +80,29 @@ def log_get_or_delete(username=None, fetch_num=100, when=None, delete=False):
 
 
 def adc_login(salt, username, password, users):
-    tmp = salt + username + password
-    hashed1 = sha1(tmp).hexdigest()  # 歴史的事情。もう消していいと思う
-    hashed256 = sha256(tmp).hexdigest()
+    "パスワードがあっているかチェックする"
+    hashed256 = hashed_password(username, password, salt)
     u = adc_get_user_info(username, users)
-    if u is not None and u[1] in (hashed1, hashed256):
+    if u is not None and u[1]==hashed256:
         return u
     else:
         return None
+
+def adc_change_password(salt, username, users, attr):
+    if ('password_old' in attr and
+        'password_new1' in attr and
+        'password_new2' in attr):
+        u = adc_login(salt, username, attr['password_old'], users)
+        if u is None:
+            return False, "password mismatched"
+        if attr['password_new1'] != attr['password_new2']:
+            return False, "new password is not same"
+        if change_password(username, attr['password_new1'].encode('utf-8'), salt):
+            return True, "password changed"
+        else:
+            return False, "password change failed"
+    else:
+        return False, "error"
 
 def adc_get_user_info(username, users):
     # まずはローカルに定義されたユーザを検索
@@ -260,15 +266,42 @@ def admin_Q_list_delete():
     ndb.Key(QuestionListAll, 'master', parent=root).delete()
     return "DELETE Q-list"
 
-def get_Q_all():
+def get_Q_all(html=False):
     "問題データの一覧リストを返す"
     qla = ndb.Key(QuestionListAll, 'master', parent=qdata_key()).get()
     if qla is None:
         return ''
+    if html:
+        out = ""
+        num=1
+        for i in qla.text_user.splitlines():
+            out += '<a href="/Q/%d">%s</a><br />\n' % (num, i)
+            num += 1
+        return out
     else:
         return qla.text_user
 
-def get_user_Q_all(author):
+def menu_post_A(username):
+    "回答ファイルをアップロードするフォームを返す"
+    qla = ndb.Key(QuestionListAll, 'master', parent=qdata_key()).get()
+    if qla is None:
+        return ''
+    out = ""
+    num=1
+    for i in qla.text_user.splitlines():
+        out += '<a href="/A/%s/Q/%d">post answer %s</a><br />\n' % (username, num, i)
+        num += 1
+    return out
+
+def post_A(username, atext, form):
+    anum = (int)(form['anum'])
+    cpu_sec = (float)(form['cpu_sec'])
+    mem_byte = (int)(form['mem_byte'])
+    misc_text = form['misc_text']
+    print "A%d\n%f\n%d\n%s" % (anum, cpu_sec, mem_byte, misc_text.encode('utf-8'))
+    return put_A_data(anum, username, atext, cpu_sec, mem_byte, misc_text)
+
+def get_user_Q_all(author, html=None):
     "authorを指定して、問題データの一覧リストを返す"
     userinfo = get_userinfo(author)
     if userinfo is None:
@@ -281,7 +314,11 @@ def get_user_Q_all(author):
     num = len(q)
     out = ""
     for i in q:
-        out += "Q%d SIZE %dX%d LINE_NUM %d (%s)\n" % (i.qnum, i.cols, i.rows, i.linenum, i.author)
+        if html is None:
+            out += "Q%d SIZE %dX%d LINE_NUM %d (%s)\n" % (i.qnum, i.cols, i.rows, i.linenum, i.author)
+        else:
+            url = '/user/%s/Q/%d' % (author, i.qnum)
+            out += '<a href="%s">Q%d SIZE %dX%d LINE_NUM %d (%s)</a><br />\n' % (url, i.qnum, i.cols, i.rows, i.linenum, i.author)
     return out
 
 
@@ -335,7 +372,7 @@ def get_A_data(a_num=None, username=None):
     return True, q, root
 
     
-def put_A_data(a_num, username, text):
+def put_A_data(a_num, username, text, cpu_sec=None, mem_byte=None, misc_text=None):
     "回答データをデータベースに格納する"
     msg = ""
     # 出題データを取り出す
@@ -366,6 +403,9 @@ def put_A_data(a_num, username, text):
                 anum = a_num,
                 text = text,
                 owner = username,
+                cpu_sec = cpu_sec,
+                mem_byte = mem_byte,
+                misc_text = misc_text,
                 result = msg )
     a_key = a.put()
     return True, msg
@@ -409,6 +449,19 @@ def get_or_delete_A_data(a_num=None, username=None, delete=False):
             result.append(i.text)
     return True, result
 
+def get_user_A_all(username, html=None):
+    "ユーザーを指定して、回答データの一覧リストを返す"
+    ret, q, root = get_A_data(username=username)
+    if not ret:
+        return False, q
+    text = ""
+    for i in q:
+        if html:
+            text += '<a href="/A/%s/Q/%d">A%d</a> <a href="/A/%s/Q/%d/info">info</a><br />\n' % (username, i.anum, i.anum,  username, i.anum)
+        else:
+            text += 'A%d\n' % i.anum
+    return True, text
+    
 def get_or_delete_A_info(a_num=None, username=None, delete=False):
     "回答データの補足情報をデータベースから、削除or取り出し"
     msg = ""
@@ -441,10 +494,14 @@ def get_or_delete_A_info(a_num=None, username=None, delete=False):
     msg += "%s A%d info %d" % (method, a_num2, num)
     return True, msg, results
 
+def hashed_password(username, password, salt):
+    "ハッシュ化したパスワード"
+    tmp = salt + username + password
+    return sha256(tmp).hexdigest()
+
 def create_user(username, password, displayname, uid, gid, salt):
     "ユーザーをデータベースに登録"
-    tmp = salt + username + password
-    hashed = sha256(tmp).hexdigest()
+    hashed = hashed_password(username, password, salt)
     userlist = userlist_key()
     u = UserInfo( parent = userlist,
                   id = username,
@@ -455,6 +512,16 @@ def create_user(username, password, displayname, uid, gid, salt):
                   gid = gid )
     u.put()
 
+def change_password(username, password, salt):
+    "パスワード変更"
+    info = get_userinfo(username)
+    if info is None:
+        return False
+    hashed = hashed_password(username, password, salt)
+    info.password = hashed
+    info.put()
+    return True
+    
 def get_username_list():
     "ユーザー名の一覧リストをデータベースから取り出す"
     #query = UserInfo.query( ancestor = userlist_key() ).order(UserInfo.uid)

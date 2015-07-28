@@ -5,6 +5,7 @@
 import getopt
 import sys, os
 from adcclient import ADCClient
+from getpass import getpass
 
 def usage(cli):
     print "usage:", os.path.basename(sys.argv[0]), "[options] command",
@@ -21,6 +22,7 @@ command:
   login
   logout
   whoami
+  password [NEWPASSWORD]
   get-user-list
   get-user [USERNAME ...]
   get-q [NUMBER ...]
@@ -100,6 +102,7 @@ def main():
     if 0 < len(args):
         a = args[0]
         if a == 'login':
+            if cli.password is None:  cli.password = getpass()
             res = cli.login(args[1:])
             print res[6]['msg']
         elif a == 'logout':
@@ -108,6 +111,21 @@ def main():
         elif a == 'whoami':
             res = cli.whoami(args[1:])
             print res[6]['msg']
+        elif a == 'password':
+            newpassword = None
+            if cli.password is None:  cli.password = getpass()
+            if 1 < len(args):
+                newpassword = args[1]
+            else:
+                newpassword1 = getpass('New Password: ')
+                newpassword2 = getpass('New Password again: ')
+                if newpassword1 == newpassword2:
+                    newpassword = newpassword1
+                else:
+                    print "password mismatch. not changed"
+            if newpassword is not None:
+                res = cli.change_password(newpassword)
+                print res[6]['msg']
         elif a == 'get-user-list':
             res = cli.get_user_list()
             #print res[6]

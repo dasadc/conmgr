@@ -11,6 +11,7 @@
 #tz = pytz.timezone(app.config['TZ'])  # time zone
 #dt = tz.fromutc(i.date).strftime('%Y-%m-%d %H:%M:%S %Z%z')
 
+
 from datetime import tzinfo, timedelta, datetime
 
 ZERO = timedelta(0)
@@ -39,3 +40,12 @@ class JST(tzinfo):
     
     def tzname(self, dt):
         return "JST"
+
+tz_utc = UTC()
+tz_jst = JST()
+def gae_datetime_JST(dt):
+    "Google App Engineのtzinfo無しdatetimeを、UTCと見なしてそれをJSTに変換したのち、タイムスタンプ文字列として返す"
+    dt_utc = dt.replace(tzinfo=tz_utc)
+    dt_jst = dt_utc.astimezone(tz_jst)
+    return dt_jst.strftime('%Y-%m-%d %H:%M:%S %Z%z')
+    

@@ -38,6 +38,7 @@ class QuestionListAll(ndb.Model):
     qs = ndb.KeyProperty(kind=Question, repeated=True)
     text_admin = ndb.StringProperty('a', indexed=False)
     text_user = ndb.StringProperty('u', indexed=False)
+    date = ndb.DateTimeProperty(auto_now_add=True)
 
 class Answer(ndb.Model):
     "回答データ"

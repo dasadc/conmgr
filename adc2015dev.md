@@ -90,11 +90,13 @@ RESTful API風になっています。
     /A                               GET    すべての回答データの一覧リストを返す
     /A                               DELETE すべての回答データを削除する
     /A/<username>                    GET    回答の一覧リストを返す 本番では禁止
+    /A/<username>/Q                  GET    Webブラウザ用
     /A/<username>/Q/<Q-number>       PUT    回答提出
     /A/<username>/Q/<Q-number>       GET    回答データを返す 本番では禁止
     /A/<username>/Q/<Q-number>       DELETE 回答データを削除 本番では禁止
     /A/<username>/Q/<Q-number>/info  GET,PUT,DELETE 回答の補足情報にアクセス
     /user/<username>/password        PUT    パスワード変更  未実装
+    /user/<username>/Q               GET    問題データの一覧リストを返す
     /user/<username>/Q/<Q-number>    PUT,POST,GET,DELETE  問題データのアクセス
     /user/<username>/alive           PUT    死活監視用
     /user/<username>/log             GET,DELETE    ログデータ

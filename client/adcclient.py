@@ -176,6 +176,15 @@ class ADCClient:
         res = self.http_request('GET', '/whoami')
         return self.fin(res)
 
+    def change_password(self, newpassword):
+        self.parse_url()
+        info = {'password_old': self.password,
+                'password_new1': newpassword,
+                'password_new2': newpassword }
+        params = json.dumps(info)
+        res = self.http_request('POST', '/user/%s/password' % self.username, params=params)
+        return self.fin(res)
+
     def get_root(self, args):
         self.parse_url()
         res = self.http_request('GET', '/2015/')

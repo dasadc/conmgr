@@ -6,7 +6,7 @@
 #
 # 一応、RESTful Web APIのつもり
 
-from flask import Flask, request, redirect, session, escape, url_for, json, make_response, render_template, g
+from flask import Flask, request, redirect, session, escape, url_for, json, make_response, render_template, g, Markup
 import adcconfig
 import adcusers
 from adcutil import *
@@ -17,9 +17,6 @@ app = Flask(__name__)
 app.config.from_object(adcconfig)
 app.config.from_object(adcusers)
 app.secret_key = app.config['SECRET_KEY']
-
-# Google App Engineでpytzを使うのはディスクの無駄遣いらしい
-#tz = pytz.timezone(app.config['TZ'])  # time zone
 
 def priv_admin():
     "ログイン中であり、admin権限をもったユーザか？"
@@ -44,6 +41,30 @@ def request_is_json():
 def log_request(username):
     log(username, request.method + " " + request.path)
 
+def cmd_panel(username):
+    if app.config['TEST_MODE']:
+        tm = "Yes"
+    else:
+        tm = "No"
+    return render_template('cmd.html',
+                           login=url_for('login'),
+                           logout=url_for('logout'),
+                           password=url_for('user_password', username=username),
+                           whoami=url_for('whoami'),
+                           myq=url_for('get_user_q_list', username=username),
+                           qlist=url_for('q_get_list'),
+                           alist=url_for('admin_A_username', username=username),
+                           posta=url_for('a_q_menu', username=username),
+                           userlist=url_for('admin_user_list_get'),
+                           me=url_for('admin_user_get', username=username),
+                           testmode=tm)
+def from_browser():
+    "webブラウザからアクセスしているかどうかの、いいかげんな判定ルール"
+    if 'text/html' in request.headers['Accept'].split(','):
+        return True
+    else:
+        return False
+
 @app.before_request
 def before_request():
     new_state, old_state = timekeeper.check()
@@ -55,7 +76,7 @@ def before_request():
             # 回答データを削除する
             get_or_delete_A_data(delete=True)
             log('auto', 'delete A all')
-        if new_state == 'im1':
+        if new_state in ('im1', 'Aup'): #im1を通らずにいきなりAupに遷移することがある
             # 出題リストを決める
             msg = admin_Q_list_create()
             log('auto', 'admin_Q_list_create')
@@ -229,15 +250,30 @@ def admin_A_username(username):
         if ( app.config['TEST_MODE']==False or  # 本番モード
              not username_matched(username) ):  # ユーザ名が一致しない
             return adc_response("permission denied", request_is_json(), 403)
-    ret, q, root = get_A_data(username=username)
-    if not ret:
-        return adc_response_text("no answer data found\n"+q, 404)
-    text = ""
-    for i in q: # 正常ならば1個しかないはず
-        text += "A%d\n" % i.anum
     log_request(username)
-    return adc_response_text(text)
-    
+    html = from_browser()
+    ret, msg = get_user_A_all(username, html=html)
+    if ret:
+        if html:
+            return adc_response(Markup(msg), False)
+        else:
+            return adc_response_text(msg)
+    else:
+        return adc_response(msg, request_is_json(), 404)
+
+@app.route('/A/<username>/Q', methods=['GET','POST'])
+def a_q_menu(username):
+    if not authenticated():
+        return adc_response("not login yet", request_is_json(), 401)
+    if request.method=='GET':
+        return render_template('posta.html', url=url_for('a_q_menu', username=username))
+    # POSTの場合
+    f = request.files['afile']
+    atext = f.read() # すべて読み込む
+    ret, msg = post_A(username, atext, request.form)
+    code = 200 if ret else 403
+    return adc_response_text(msg, code)
+
 @app.route('/A/<username>/Q/<int:a_num>', methods=['PUT','GET','DELETE'])
 def a_put(username, a_num):
     "回答データを、登録する、取り出す、削除する"
@@ -309,8 +345,15 @@ def get_user_q_list(username):
         if session['username'] != username: # ユーザ名チェック
             return adc_response("permission denied", request_is_json(), 403)
     log_request(username)
-    msg = get_user_Q_all(username)
-    return adc_response_text(msg)
+    if from_browser():
+        msg = get_user_Q_all(username, html=True)
+        for i in range(1,4):
+            url = url_for('user_q', username=username, q_num=i)
+            msg += "<hr>\n" + render_template('postq.html', url=url, qnum=i)
+        return adc_response(Markup(msg), False)
+    else:
+        msg = get_user_Q_all(username)
+        return adc_response_text(msg)
     
 @app.route('/user/<username>/Q/<int:q_num>', methods=['GET','PUT','POST','DELETE'])
 def user_q(username, q_num):
@@ -333,16 +376,24 @@ def user_q(username, q_num):
         msg = "PUT OK update %d %s Q%d size %dx%d line_num %d" % (num, username, q_num, size[0], size[1], line_num)
         return adc_response_text(msg)
     elif request.method == 'POST':
+        # ここは、Webブラウザ向けの処理
+        #print "form=", request.form.items()
+        #print "files=", request.files.items()
         f = request.files['qfile']
         qtext = f.read() # すべて読み込む
-        res = insert_Q_data(q_num, qtext, author=username)
-        if res[0]:
-            size, line_num = res[1:]
-            msg = "POST OK insert %s Q%d size %dx%d line_num %d" % (username, q_num, size[0], size[1], line_num)
+        delete = request.form.has_key('delete')
+        if delete:
+            msg = delete_user_Q_data(q_num, author=username)
             code = 200
         else:
-            msg = res[1]
-            code = 403
+            res = insert_Q_data(q_num, qtext, author=username)
+            if res[0]:
+                size, line_num = res[1:]
+                msg = "POST OK insert %s Q%d size %dx%d line_num %d" % (username, q_num, size[0], size[1], line_num)
+                code = 200
+            else:
+                msg = res[1]
+                code = 403
         return adc_response_text(msg, code)
     elif request.method == 'DELETE':
         msg = delete_user_Q_data(q_num, author=username)
@@ -392,6 +443,28 @@ def user_log_before(username, key, val):
         body = json.dumps(tmp)
         return adc_response_json(body)
 
+@app.route('/user/<username>/password', methods=['GET','POST'])
+def user_password(username):
+    "パスワードの変更"
+    if not authenticated():
+        if request.method == 'GET':
+            return redirect(url_for('login'))
+        else:
+            return adc_response("access forbidden", request_is_json(), 403)
+    if request.method == 'GET':
+        return render_template('password.html',
+                               URL=url_for('user_password', username=username),
+                               username=username)
+    if request.headers['Content-Type'] == 'application/json':
+        req = request.get_json()
+    elif request.headers['Content-Type'] == 'application/x-www-form-urlencoded':
+        req = request.form
+    else:
+        return adc_response("bogus request", request_is_json(), 400)
+    r = adc_change_password(app.config['SALT'], username, app.config['USERS'], req)
+    code = 200 if r[0] else 403
+    return adc_response(r[1], request_is_json(), code)
+
 @app.route('/Q/<int:q_num>', methods=['GET'])
 def q_get(q_num):
     if not authenticated():
@@ -404,13 +477,21 @@ def q_get(q_num):
 def q_get_list():
     if not authenticated():
         return adc_response("not login yet", request_is_json(), 401)
+    if g.state != 'Aup':
+        return adc_response("deadline passed", request_is_json(), 503)
     log_request(session['username'])
-    msg = get_Q_all()
-    return adc_response_text(msg)
-    
+    if from_browser():
+        msg = get_Q_all(html=True)
+        return adc_response(Markup(msg), False)
+    else:
+        msg = get_Q_all()
+        return adc_response_text(msg)
 
 @app.route('/2015/', methods=['GET'])
 def root():
+    if authenticated() and not request_is_json():
+        log_request(session['username'])
+        return cmd_panel(session['username'])
     log_request('-')
     msg = r"Hello world\n"
     msg += r"Test mode: %s\n" % app.config['TEST_MODE']
