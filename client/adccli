@@ -143,11 +143,12 @@ def main():
         elif a == 'get-a-info':
             res = cli.get_or_delete_a_info(args[1:], delete=False)
             print res[6]['msg']
-            for i in res[6]['results']:
-                #print i # iはdictのはず
-                for key,value in i.iteritems():
-                    #if key == 'msg': continue
-                    print "%s:" % key.encode('utf-8'), value                    
+            if 'results' in res[6]:
+                for i in res[6]['results']:
+                    #print i # iはdictのはず
+                    for key,value in i.iteritems():
+                        #if key == 'msg': continue
+                        print "%s:" % key.encode('utf-8'), value
         elif a == 'delete-a-info':
             res = cli.get_or_delete_a_info(args[1:], delete=True)
             print res[6]['msg']
