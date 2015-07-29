@@ -5,6 +5,8 @@
 # Web部分
 #
 # 一応、RESTful Web APIのつもり
+#
+# Copyright (C) 2015 Fujitsu
 
 from flask import Flask, request, redirect, session, escape, url_for, json, make_response, render_template, g, Markup
 import adcconfig

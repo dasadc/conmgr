@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # 時計の時刻に基づいて、状態遷移させる
+#
+# Copyright (C) 2015 Fujitsu
 
 from google.appengine.ext import ndb
 import datetime

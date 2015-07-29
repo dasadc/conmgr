@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 # アルゴリズムデザインコンテストのさまざまな処理
+#
+# Copyright (C) 2015 Fujitsu
 
 import numberlink
 from datastore import *

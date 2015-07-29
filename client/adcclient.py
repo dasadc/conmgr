@@ -1,5 +1,8 @@
 # -*- coding: utf-8 ; mode: python -*-
 #
+# a client library for ADC service
+#
+# Copyright (C) 2015 Fujitsu
 
 import os, stat, sys, json
 import httplib
