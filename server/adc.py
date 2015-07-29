@@ -451,6 +451,9 @@ def user_password(username):
             return redirect(url_for('login'))
         else:
             return adc_response("access forbidden", request_is_json(), 403)
+    if not priv_admin():                    # 管理者ではない
+        if not username_matched(username):  # ユーザ名が一致しない
+            return adc_response("permission denied", request_is_json(), 403)
     if request.method == 'GET':
         return render_template('password.html',
                                URL=url_for('user_password', username=username),
@@ -461,7 +464,7 @@ def user_password(username):
         req = request.form
     else:
         return adc_response("bogus request", request_is_json(), 400)
-    r = adc_change_password(app.config['SALT'], username, app.config['USERS'], req)
+    r = adc_change_password(app.config['SALT'], username, app.config['USERS'], req, priv_admin())
     code = 200 if r[0] else 403
     return adc_response(r[1], request_is_json(), code)
 

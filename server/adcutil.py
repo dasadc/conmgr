@@ -88,13 +88,15 @@ def adc_login(salt, username, password, users):
     else:
         return None
 
-def adc_change_password(salt, username, users, attr):
+def adc_change_password(salt, username, users, attr, priv_admin=False):
+    "パスワード変更。管理者は他人のパスワードも変更できる。"
     if ('password_old' in attr and
         'password_new1' in attr and
         'password_new2' in attr):
-        u = adc_login(salt, username, attr['password_old'], users)
-        if u is None:
-            return False, "password mismatched"
+        if not priv_admin: # 管理者でないときは、現在のパスワードをチェック
+            u = adc_login(salt, username, attr['password_old'], users)
+            if u is None:
+                return False, "password mismatched"
         if attr['password_new1'] != attr['password_new2']:
             return False, "new password is not same"
         if change_password(username, attr['password_new1'].encode('utf-8'), salt):
@@ -496,7 +498,7 @@ def get_or_delete_A_info(a_num=None, username=None, delete=False):
 
 def hashed_password(username, password, salt):
     "ハッシュ化したパスワード"
-    tmp = salt + username + password
+    tmp = salt + username.encode('utf-8') + password.encode('utf-8')
     return sha256(tmp).hexdigest()
 
 def create_user(username, password, displayname, uid, gid, salt):
