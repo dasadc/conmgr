@@ -55,5 +55,5 @@ def check():
         clk.state = new_state
         clk.lastUpdate = now
         clk.put()
-        print "TK: state change", clk
+        #print "TK: state change", clk
     return new_state, old_state
