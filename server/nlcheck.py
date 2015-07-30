@@ -400,10 +400,10 @@ class NLCheck:
         for line in range(1, line_num+1):
             (x0,y0,x1,y1) = line_mat[line-1]
             if self.is_terminal(xmat, x0,y0) == False:
-                print "check_3: not terminal (%d,%d)" % (x0,y0)
+                print "check_3: not terminal (%d,%d) #%02d" % (x0,y0,xmat[y0+1,x0+1])
                 judge = False
             if self.is_terminal(xmat, x1,y1) == False:
-                print "check_3: not terminal (%d,%d)" % (x1,y1)
+                print "check_3: not terminal (%d,%d) #%02d" % (x1,y1,xmat[y1+1,x1+1])
                 judge = False
         return judge
 
@@ -413,8 +413,9 @@ class NLCheck:
         judge = True
         for y in range(0, xmat.shape[0]-2):
             for x in range(0, xmat.shape[1]-2):
+                if xmat[y+1,x+1] == 0: continue # 0は空き地
                 if self.is_branched(xmat, x,y) == True:
-                    print "check_4: found branch (%d,%d)" % (x-1,y-1) # 座標が1だけずれている
+                    print "check_4: found branch (%d,%d) #%02d" % (x,y,xmat[y+1,x+1]) # 座標が1だけずれている
                     judge = False
         return judge
 
@@ -470,19 +471,27 @@ class NLCheck:
             mat = target_data[i] # 解答の行列
             r1 = self.check_1(input_data, mat)
             if self.verbose: print "check_1", r1
-            if r1:
+            try:
                 r2 = self.check_2(input_data, mat)
-                if self.verbose: print "check_2", r2
-                if r2:
-                    xmat = self.extend_matrix(mat)
-                    r3 = self.check_3(input_data, xmat)
-                    if self.verbose: print "check_3", r3
-                    if r3:
-                        r4 = self.check_4(xmat)
-                        if self.verbose: print "check_4", r4
-                        if r4:
-                            r5 = self.check_5(input_data, xmat)
-                            if self.verbose: print "check_5", r5
+            except IndexError, e:
+                print "IndexError:", e
+            if self.verbose: print "check_2", r2
+            try:
+                xmat = self.extend_matrix(mat)
+                r3 = self.check_3(input_data, xmat)
+            except IndexError, e:
+                print "IndexError:", e
+            if self.verbose: print "check_3", r3
+            try:
+                r4 = self.check_4(xmat)
+            except IndexError, e:
+                print "IndexError:", e
+            if self.verbose: print "check_4", r4
+            try:
+                r5 = self.check_5(input_data, xmat)
+            except IndexError, e:
+                print "IndexError:", e
+            if self.verbose: print "check_5", r5
             #
             res = r1 and r2 and r3 and r4 and r5
             judges.append(res)
