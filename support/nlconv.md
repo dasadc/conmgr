@@ -1,15 +1,15 @@
 # nlconv.pl
 
-nlconv.plは、問題データ生成ツールです。
+`nlconv.pl`は、問題データ生成ツールです。
 
-Excelファイル(.xls,.xlsx)形式で問題を記述しておいて、`nlconv.pl`を使って、テキストファイル形式の問題ファイルを生成できます。
+Excelファイル(.xls|.xlsx)形式で問題を記述しておいて、`nlconv.pl`を使って、テキストファイル形式の問題ファイルを生成できます。
 
 
 ## 必要なライブラリ
 
 そもそも、perlスクリプトなので、実行するためにperlが必要です。
 
-追加のライブラリとして、Spreadsheet::ParseExcel と use Spreadsheet::XLSX が必要ですので、インストールしておいてください。
+追加のライブラリとして、`Spreadsheet::ParseExcel` と `Spreadsheet::XLSX` が必要ですので、インストールしておいてください。
 
 CentOS7の場合、EPELからインストール可能でした。
 
