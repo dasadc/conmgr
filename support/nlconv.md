@@ -14,7 +14,6 @@ Excelファイル(.xls,.xlsx)形式で問題を記述しておいて、`nlconv.p
 CentOS7の場合、EPELからインストール可能でした。
 
 ```
-aaaa
 perl-Spreadsheet-ParseExcel.x86_64               0.5900-8.el7               epel
 perl-Spreadsheet-XLSX.noarch                   0.13-8.el7                   epel
 ```
