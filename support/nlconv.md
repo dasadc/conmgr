@@ -22,6 +22,8 @@ perl-Spreadsheet-XLSX.noarch                   0.13-8.el7                   epel
 sudo yum install perl-Spreadsheet-ParseExcel.x86_64 perl-Spreadsheet-XLSX.noarch
 ```
 
+FreeBSDでも、パッケージかportsからインストールできます。
+
 パッケージが利用できない場合でも、CPANを利用して、かんたんにインストールできると思います。
 
 ```
@@ -80,6 +82,6 @@ P.36-50は、端点のみに数字が入っています。
 
 色は、見やすさのためだけのものなので、どうでもいいです。
 
-Excel上でセルをコピペして描いていくときは、P.30のような形式のほうが作業しやすいと思います。
+Excel上でセルをコピペして描いていくときは、P.30の形式が作業しやすいと思います。
 
 1ファイルで複数のワークシートを使って、複数問、書けます。
