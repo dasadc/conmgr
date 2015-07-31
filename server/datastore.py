@@ -50,7 +50,9 @@ class Answer(ndb.Model):
     cpu_sec = ndb.FloatProperty(indexed=False)
     mem_byte = ndb.IntegerProperty(indexed=False)
     misc_text = ndb.StringProperty(indexed=False)
-    result = ndb.StringProperty() # 採点結果
+    result = ndb.StringProperty()  # 採点結果
+    judge = ndb.IntegerProperty()  # True=1=正解, False=0=不正解
+    q_factor = ndb.FloatProperty() # 解の品質
 
 class Log(ndb.Model):
     date = ndb.DateTimeProperty(auto_now_add=True)

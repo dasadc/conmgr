@@ -304,6 +304,41 @@ class NLCheck:
         else:
             return False
 
+    def is_corner(self, xmat, x, y):
+        "線が折れ曲がった角の場所か？"
+        # 折れ曲がり、コーナー、とは?
+        # 
+        # ■
+        # □■
+        # 
+        # 
+        #   ■
+        # ■□
+        # 
+        #   
+        # ■□
+        #   ■
+        # 
+        #   □■
+        #   ■
+        #
+        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
+        y1 = 1 + y
+        num = xmat[y1,x1] # 注目点の数字
+        eastEq     = 1 if (xmat[y1,  x1+1] == num) else 0
+        northEq    = 1 if (xmat[y1-1,x1  ] == num) else 0
+        westEq     = 1 if (xmat[y1,  x1-1] == num) else 0
+        southEq    = 1 if (xmat[y1+1,x1  ] == num) else 0
+        #print "(%d,%d) %d %d %d %d  %d" % (x,y,eastEq,northEq,westEq,southEq,(eastEq + northEq + westEq + southEq))
+        # 以下の判定では、枝分かれ個所も、折れ曲がりだと見なしている。枝分かれは不正解なので、このままでOK
+        if (eastEq  and northEq or
+            northEq and westEq or
+            westEq  and southEq or
+            southEq and eastEq):
+            return True
+        else:
+            return False
+
 
     def clearConnectedLine(self, xmat, clear, x1, y1):
         "線を１本消してみる"
@@ -413,7 +448,7 @@ class NLCheck:
         judge = True
         for y in range(0, xmat.shape[0]-2):
             for x in range(0, xmat.shape[1]-2):
-                if xmat[y+1,x+1] == 0: continue # 0は空き地
+                if xmat[y+1,x+1] == 0: continue # 0は空き地。xmatのズレ補正必要
                 if self.is_branched(xmat, x,y) == True:
                     print "check_4: found branch (%d,%d) #%02d" % (x,y,xmat[y+1,x+1]) # 座標が1だけずれている
                     judge = False
@@ -455,6 +490,38 @@ class NLCheck:
                         print "check_6: same data, %d and %d" % (i,j)
         return judge
 
+    def line_length(self, nlines, mat):
+        "線の長さを計算する"
+        length = np.zeros(nlines+1, dtype=np.integer)
+        for y in range(0, mat.shape[0]):
+            for x in range(0, mat.shape[1]):
+                num = mat[y,x]
+                if num == 0: continue
+                length[num] += 1
+                #print "line_length: (%d,%d) #%02d %d" % (x,y,num,length[num])
+        if self.verbose: print "length=", length[1:] # 線ごとの線長
+        return length.sum()
+
+    def count_corners(self, nlines, xmat):
+        "折れ曲がり回数を計算する"
+        corner = np.zeros(nlines+1, dtype=np.integer)
+        for y in range(0, xmat.shape[0]-2):
+            for x in range(0, xmat.shape[1]-2):
+                num = xmat[y+1,x+1]
+                if num == 0: continue
+                if self.is_corner(xmat, x, y) == True:
+                    corner[num] += 1
+                    #print "corner: (%d,%d) #%02d %d" % (x,y,num,corner[num])
+        if self.verbose: print "corner=", corner[1:] # 線ごとの角の数
+        return corner.sum()
+    
+    def quality(self, input_data, mat, xmat):
+        "解の品質を計算する"
+        total_length = self.line_length(input_data[1], mat)
+        total_corner = self.count_corners(input_data[1], xmat)
+        q = 1.0 / float(total_length + total_corner)
+        if self.verbose: print "quality=",q
+        return q
 
     def check(self, input_data, target_data):
         "回答が正しいかチェックする"
@@ -494,7 +561,12 @@ class NLCheck:
             if self.verbose: print "check_5", r5
             #
             res = r1 and r2 and r3 and r4 and r5
-            judges.append(res)
+            print "res=",res
+            if res:
+                q = self.quality(input_data, mat, xmat)
+            else:
+                q = 0.0
+            judges.append([res,q])
         # 複数解があるときに、同一の解が含まれていたら、２つめ以降は不正解
         r6 = self.check_6(target_data, judges)
         if self.verbose: print "check_6", r6

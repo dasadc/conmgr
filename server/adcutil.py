@@ -391,16 +391,18 @@ def put_A_data(a_num, username, text, cpu_sec=None, mem_byte=None, misc_text=Non
         return False, msg
     # 回答データのチェックをする
     judges, msg = numberlink.check_A_data(text, q_text)
-    if len(judges)==0 or judges[0] == False: # 2つ以上にはならないはず
+    q = 0.0
+    na = len(judges)
+    if 1 < na: # 2015年ルールでは、回答は1つだけ
+        msg += "Warning: too many answers(%d) in A%d. aceept first one only.\n" % (na, a_num)
+    if na==0 or judges[0][0] == False:
         msg += "Error in answer A%d\n" % a_num
         check_A = False
     else:
         check_A = True # 正解
-    # 採点する  ★未実装
-    if check_A:
-        msg += "Get 3.141592 point [DUMMY]\n"
-    else:
-        msg += "Get 0 point [DUMMY]\n"
+        q = judges[0][1]
+    # 解の品質
+    msg += "Quality factor = %1.19f\n" % q
     # データベースに登録する。不正解でも登録する
     a = Answer( parent = root,
                 id = str(a_num),
@@ -410,7 +412,9 @@ def put_A_data(a_num, username, text, cpu_sec=None, mem_byte=None, misc_text=Non
                 cpu_sec = cpu_sec,
                 mem_byte = mem_byte,
                 misc_text = misc_text,
-                result = msg )
+                result = msg[-1499:],  # 長さ制限がある。末尾のみ保存。
+                judge = int(check_A),
+                q_factor = q )
     a_key = a.put()
     return True, msg
 
