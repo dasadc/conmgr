@@ -141,10 +141,9 @@ def insert_Q_data(q_num, text, author="DASymposium", year=2015, uniq=True):
         if q is not None:
             return (False, "Error: Q%d data already exists" % q_num) # 重複エラー
     # 問題データのチェック
-    (size, line_num, line_mat) = numberlink.read_input_data(text)
-    r = numberlink.check_Q_data(size, line_num, line_mat)
-    if not r:
-        return (False, "Error: syntax error in data")
+    (size, line_num, line_mat, msg, ok) = numberlink.read_input_data(text)
+    if not ok:
+        return (False, "Error: syntax error in Q data\n"+msg)
     # text2は、textを正規化したテキストデータ（改行コードなど）
     text2 = numberlink.generate_Q_data(size, line_num, line_mat)
     # rootエンティティを決める
@@ -170,8 +169,10 @@ def insert_Q_data(q_num, text, author="DASymposium", year=2015, uniq=True):
 def update_Q_data(q_num, text, author="DASymposium", year=2015):
     "問題データを変更する"
     # 問題データの内容チェック
-    (size, line_num, line_mat) = numberlink.read_input_data(text)
-    r = numberlink.check_Q_data(size, line_num, line_mat)
+    (size, line_num, line_mat, msg, ok) = numberlink.read_input_data(text)
+    if not ok:
+        return (False, "Error: syntax error in Q data\n"+msg, None, None)
+
     text2 = numberlink.generate_Q_data(size, line_num, line_mat)
     # 既存のエンティティを取り出す
     res = get_user_Q_data(q_num, author, year)
@@ -181,7 +182,7 @@ def update_Q_data(q_num, text, author="DASymposium", year=2015):
         num = 1
         res.text = text2
         res.put()
-    return (num, size, line_num)
+    return (True, num, size, line_num)
 
 def get_Q_data(q_num, year=2015, fetch_num=5):
     "出題の番号を指定して、Question問題データをデータベースから取り出す"
@@ -565,4 +566,4 @@ def Q_check(qtext):
         out = "OK\n" + hr + q + hr
     else:
         out = "NG\n" + hr + qtext + hr + res[3]
-    return out
+    return out, res[4]

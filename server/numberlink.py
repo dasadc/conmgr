@@ -90,13 +90,6 @@ def read_input_data(text):
             ok = False
     return (size, line_num, line_mat, msg, ok)
 
-
-def check_Q_data(size, line_num, line_mat):
-    "問題データが正しいかチェックする"
-    #あとで作る
-    return True
-
-
 def generate_Q_data(size, line_num, line_mat):
     "アルゴリズムデザインコンテスト用の書式の問題テキストデータを作る"
     crlf = "\r\n" # DOSの改行コード

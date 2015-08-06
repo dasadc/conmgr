@@ -375,8 +375,12 @@ def user_q(username, q_num):
         return adc_response_Q_data(result)
     elif request.method == 'PUT':
         qtext = request.data
-        (num, size, line_num) = update_Q_data(q_num, qtext, username )
-        msg = "PUT OK update %d %s Q%d size %dx%d line_num %d" % (num, username, q_num, size[0], size[1], line_num)
+        (ok, num, size, line_num) = update_Q_data(q_num, qtext, username )
+        if ok:
+            msg = "PUT OK update %d %s Q%d size %dx%d line_num %d" % (num, username, q_num, size[0], size[1], line_num)
+        else:
+            errmsg = num
+            msg = "ERROR in Q data\n" + errmsg
         return adc_response_text(msg)
     elif request.method == 'POST':
         # ここは、Webブラウザ向けの処理
@@ -506,7 +510,7 @@ def q_check():
         qtext = f.read() # すべて読み込む
     else: # PUTの場合
         qtext = request.data
-    msg = Q_check(qtext)
+    msg, ok = Q_check(qtext)
     return adc_response_text(msg)
 
 @app.route('/2015/', methods=['GET'])
