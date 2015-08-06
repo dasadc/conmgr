@@ -88,6 +88,7 @@ RESTful API風になっています。
     /Q/all-in-zip                    GET    未実装
     /Q/<Q-number>                    GET    出題データを返す
 	/Qcheck                          PUT    問題ファイルの妥当性をチェックする
+	/Qcheck                          GET,POST  Webブラウザ用
     /A                               GET    すべての回答データの一覧リストを返す
     /A                               DELETE すべての回答データを削除する
     /A/<username>                    GET    回答の一覧リストを返す 本番では禁止
