@@ -39,6 +39,7 @@ command:
   post-user-q NUMBER FILENAME
   put-user-q NUMBER FILENAME
   delete-user-q [NUMBER ...]
+  check-q FILENAME
   put-user-alive MSG
   get-user-log [NUMBER (seconds|days)]
   delete-user-log [NUMBER (seconds|days)]
@@ -196,6 +197,9 @@ def main():
             for i in args[1:]:
                 res = cli.delete_user_q(int(i))
                 print res[6]['msg']
+        elif a == 'check-q':
+            res = cli.check_q(args[1])
+            print res[6]['msg']
         elif a == 'get-admin-q-all':
             res = cli.get_admin_q_all(args[1:])
             print res[6]['msg']

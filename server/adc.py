@@ -492,6 +492,15 @@ def q_get_list():
         msg = get_Q_all()
         return adc_response_text(msg)
 
+@app.route('/Qcheck', methods=['PUT'])
+def q_check():
+    if not authenticated():
+        return adc_response("not login yet", request_is_json(), 401)
+    # でも、ログインチェック不要でもいいかな…
+    qtext = request.data
+    msg = Q_check(qtext)
+    return adc_response_text(msg)
+
 @app.route('/2015/', methods=['GET'])
 def root():
     if authenticated() and not request_is_json():

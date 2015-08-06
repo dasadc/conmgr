@@ -418,6 +418,15 @@ class ADCClient:
         res = self.http_request('DELETE', path, json=False)
         return self.fin(res)
 
+    def check_q(self, q_file):
+        "PUT /Qcheck"
+        self.parse_url()
+        with open(q_file, "r") as f:
+            qtext = f.read()
+        path = "/Qcheck"
+        res = self.http_request('PUT', path, params=qtext, json=False)
+        return self.fin(res)
+
     def delete_a(self, a_num):
         self.parse_url()
         path = "/A/%s/Q/%d" % (self.username, a_num)

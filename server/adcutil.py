@@ -555,3 +555,15 @@ def delete_user(username):
         userinfo.key.delete()
         return 1
     return n
+
+def Q_check(qtext):
+    "問題ファイルの妥当性チェックを行う"
+    hr = '-'*40 + "\n"
+    print "qtext=",qtext
+    res = numberlink.read_input_data(qtext)
+    if res[4]:
+        q = numberlink.generate_Q_data(res[0], res[1], res[2])
+        out = "OK\n" + hr + q + hr
+    else:
+        out = "NG\n" + hr + qtext + hr + res[3]
+    return out
