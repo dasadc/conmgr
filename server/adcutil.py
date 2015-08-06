@@ -559,7 +559,6 @@ def delete_user(username):
 def Q_check(qtext):
     "問題ファイルの妥当性チェックを行う"
     hr = '-'*40 + "\n"
-    print "qtext=",qtext
     res = numberlink.read_input_data(qtext)
     if res[4]:
         q = numberlink.generate_Q_data(res[0], res[1], res[2])
