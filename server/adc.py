@@ -57,6 +57,7 @@ def cmd_panel(username):
                            qlist=url_for('q_get_list'),
                            alist=url_for('admin_A_username', username=username),
                            posta=url_for('a_q_menu', username=username),
+                           checkq=url_for('q_check'),
                            userlist=url_for('admin_user_list_get'),
                            me=url_for('admin_user_get', username=username),
                            testmode=tm)
@@ -492,13 +493,19 @@ def q_get_list():
         msg = get_Q_all()
         return adc_response_text(msg)
 
-@app.route('/Qcheck', methods=['PUT'])
+@app.route('/Qcheck', methods=['GET','PUT','POST'])
 def q_check():
     if not authenticated():
         return adc_response("not login yet", request_is_json(), 401)
-    # でも、ログインチェック不要でもいいかな…
     log_request(session['username'])
-    qtext = request.data
+    if request.method == 'GET':
+        return render_template('qcheck.html')
+    elif request.method == 'POST':
+        # ここは、Webブラウザ向けの処理
+        f = request.files['qfile']
+        qtext = f.read() # すべて読み込む
+    else: # PUTの場合
+        qtext = request.data
     msg = Q_check(qtext)
     return adc_response_text(msg)
 
