@@ -497,6 +497,7 @@ def q_check():
     if not authenticated():
         return adc_response("not login yet", request_is_json(), 401)
     # でも、ログインチェック不要でもいいかな…
+    log_request(session['username'])
     qtext = request.data
     msg = Q_check(qtext)
     return adc_response_text(msg)
