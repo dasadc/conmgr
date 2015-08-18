@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #
@@ -103,7 +104,6 @@ def generate_Q_data(size, line_num, line_mat):
 
 def check_A_data(a_text, q_text):
     """回答データのチェックをする"""
-    # 今は2014年版の処理しかしていない。★★★あとで実装する
     nlc = NLCheck()
     #nlc.debug = True
     #print "Q=",q_text

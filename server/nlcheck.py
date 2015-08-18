@@ -72,7 +72,7 @@ class NLCheck:
     def __init__(self):
         self.debug = False
         self.verbose = False
-
+        np.set_printoptions(linewidth=255)
 
     def read_input_file(self, file):
         """問題ファイルを読み込む
@@ -435,10 +435,10 @@ class NLCheck:
         for line in range(1, line_num+1):
             (x0,y0,x1,y1) = line_mat[line-1]
             if self.is_terminal(xmat, x0,y0) == False:
-                print "check_3: not terminal (%d,%d) #%02d" % (x0,y0,xmat[y0+1,x0+1])
+                print "check_3: not terminal (%d,%d) #%d" % (x0,y0,xmat[y0+1,x0+1])
                 judge = False
             if self.is_terminal(xmat, x1,y1) == False:
-                print "check_3: not terminal (%d,%d) #%02d" % (x1,y1,xmat[y1+1,x1+1])
+                print "check_3: not terminal (%d,%d) #%d" % (x1,y1,xmat[y1+1,x1+1])
                 judge = False
         return judge
 
@@ -536,6 +536,9 @@ class NLCheck:
             r4 = False
             r5 = False
             mat = target_data[i] # 解答の行列
+            if mat.sum() == 0:
+                print "ERROR: Zero Matrix"
+                continue
             r1 = self.check_1(input_data, mat)
             if self.verbose: print "check_1", r1
             try:
@@ -572,8 +575,60 @@ class NLCheck:
         if self.verbose: print "check_6", r6
         #
         return judges
-                
+               
+    def clean_a(self, q, a):
+        "solverが出力する解が変なので、ちゃちゃっときれいにする"
+        import nlclean
+        a2 = []
+        for ai in a:
+            #print "ai=\n",ai
+            mat = ai
+            if mat.sum() == 0:
+                print "ERROR: Zero Matrix"
+                continue
+            line_mat = q[2]
+            xmat = self.extend_matrix(mat)
+            xmat2 = nlclean.clean(line_mat, xmat)
+            #print "xmat2=\n", xmat2
+            #print (xmat==xmat2)
+            xmat3 = nlclean.short_cut(line_mat, xmat2)
+            #print "xmat3=\n", xmat3
+            #xmat3 = xmat2
+            a2.append( xmat3[1:-1, 1:-1] ) # xmatをmatに戻す。周囲を1だけ削る
+        return a2
 
+    def generate_A_data(self, a2):
+        "clean_aを通したあとの、回答データを、ADC形式に変換する"
+        crlf = "\r\n" # DOSの改行コード
+        firsttime = True
+        out = None
+        for ai in a2:
+            if firsttime:
+                firsttime = False
+                out = "SIZE %dX%d" % (ai.shape[1], ai.shape[0]) + crlf
+            for y in range(0, ai.shape[0]):
+                for x in range(0, ai.shape[1]):
+                    out += "%02d" % ai[y,x]
+                    if x == ai.shape[1]-1:
+                        out += crlf
+                    else:
+                        out += ","
+            out += crlf
+        return out
+
+    def graphic_gif(self, q, a, filename):
+        "回答データをグラフィックとして描画"
+        import nldraw
+        images = nldraw.draw(q, a, self)
+        base = re.sub("\.gif", "", filename)
+        num = 0
+        for img in images:
+            file = "%s.%d.gif" % (base, num)
+            img.writeGif(file)
+            print file
+            num += 1
+        
+    
     def usage(self):
         print "usage:",sys.argv[0],
         print """
@@ -582,11 +637,13 @@ class NLCheck:
 -v|--verbose
 -i|--input=FILE
 -t|--target=FILE
+-c|--clean=FILE
+-g|--gif=FILE
 """
 
     def main(self):
         try:
-            opts, args = getopt.getopt(sys.argv[1:], "hdvi:t:", ["help","debug","verbose","input=","target="])
+            opts, args = getopt.getopt(sys.argv[1:], "hdvi:t:c:g:", ["help","debug","verbose","input=","target=","clean=","gif="])
         except getopt.GetoptError:
             self.usage()
             sys.exit(2)
@@ -594,6 +651,8 @@ class NLCheck:
         target_data = None  # チェック対象とする解答データ
         input_file = None
         target_file = None
+        clean = None
+        gif = None
         for o,a in opts:
             if o in ("-h","--help"):
                 self.usage()
@@ -610,9 +669,20 @@ class NLCheck:
                 target_data = self.read_target_file(a)
                 target_file = a
                 if self.verbose: print "target=\n", target_data
+            elif o in ("-c", "--clean"):
+                clean = a
+            elif o in ("-g", "--gif"):
+                gif = a
         if input_data is not None and target_data is not None:
+            if clean is not None:
+                target_data = self.clean_a(input_data, target_data)
+                atext = self.generate_A_data(target_data)
+                with open(clean, "w") as f:
+                    f.write(atext)
             judges = self.check( input_data, target_data )
             print "judges = ", judges
+            if gif is not None:
+                self.graphic_gif(input_data, target_data, gif)
         if input_file is not None and target_file is not None:
             self.check_filename(input_file, target_file)
 

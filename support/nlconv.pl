@@ -135,6 +135,9 @@ sub print_Q_adc {
 	    if ( defined $ban->[$x][$y] &&
 		 $ban->[$x][$y] =~ /^\d+$/ ) {
 		my $num = $ban->[$x][$y];
+		if ($num == 0) {
+		    next;
+		}
 		if ( $maxNum <= $num ) { $maxNum = $num; }
 		if ( !defined $numbers{$num} ) {
 		    $numbers{$num} = 0;
@@ -193,6 +196,7 @@ sub proc1 {
 	my ( $col_min, $col_max ) = $worksheet->col_range();
 	#print "row_min=$row_min, col_min=$col_min\n";
 	#print "row_max=$row_max, col_max=$col_max\n";
+	my $dataA = 0; # Aファイル（回答データ）を生成する
 	
 	for my $row ( $row_min .. $row_max ) {
 	    for my $col ( $col_min .. $col_max ) {
@@ -212,7 +216,14 @@ sub proc1 {
 	}
 	my $nrows = $ban->[0][0]; # 行数  "0000","行"
 	my $ncols = $ban->[0][1]; # 列数  "0000","列"
+	if ( $nrows <= 0 || $ncols <= 0 ) {
+	    #print "SKIP: sheet " . $worksheet->get_name() . "\n";
+	    next;
+	}
 	#print "nrows=$nrows, ncols=$ncols\n";
+	if (defined($ban->[2][0]) && $ban->[2][0] eq 'A') { # セルC1
+	    $dataA = 1;
+	}
 
 	my $xmax = 1 + $ncols - 1;
 	my $ymax = 3 + $nrows - 1;
@@ -237,36 +248,38 @@ sub proc1 {
 	    }
 	}
 	#print_ban( $ban2, \*STDOUT );
-	# 解答ファイルを作る(ソルバで解けなかったとき用)
-	if ( 0 ) {
+
+	if ( $dataA != 0 ) {
+	    # 解答ファイルを作る(ソルバで解けなかったとき用)
 	    my $sheetname = $worksheet->get_name();
 	    my $sfilename = sprintf("%s_%s_adc_sol.txt", $basefile, $sheetname);
 	    open( my $fp0, ">$sfilename") || die "ERROR: open $sfilename";
 	    print_ban_adc( $ban2, 1, $fp0 );
 	    close $fp0
-	}
 
-	# 線を消して、端点のみを残す
-	clear_number( $ban2 );
+	} else {
+	    # 線を消して、端点のみを残す
+	    clear_number( $ban2 );
 
-	my $sheetname = $worksheet->get_name();
-	my $ofilename = sprintf("%s_%s.txt", $basefile, $sheetname);
-	print $ofilename . "\n";
-	open( my $fp, ">$ofilename") || die "ERROR: open $ofilename";
-	print_ban( $ban2, $fp );
-	close $fp;
+	    my $sheetname = $worksheet->get_name();
+	    my $ofilename = sprintf("%s_%s.txt", $basefile, $sheetname);
+	    print $ofilename . "\n";
+	    open( my $fp, ">$ofilename") || die "ERROR: open $ofilename";
+	    print_ban( $ban2, $fp );
+	    close $fp;
 
-	$ofilename = sprintf("%s_%s.csv", $basefile, $sheetname);
-	print $ofilename . "\n";
-	open( my $fp1, ">$ofilename") || die "ERROR: open $ofilename";
-	print_ban_csv( $ban2, $fp1 );
-	close $fp1;
+	    $ofilename = sprintf("%s_%s.csv", $basefile, $sheetname);
+	    print $ofilename . "\n";
+	    open( my $fp1, ">$ofilename") || die "ERROR: open $ofilename";
+	    print_ban_csv( $ban2, $fp1 );
+	    close $fp1;
 
-	my $ofilename_adc = sprintf("%s_%s_adc.txt", $basefile, $sheetname);
-	print $ofilename_adc . "\n";
-	open( my $fp2, ">$ofilename_adc") || die "ERROR: open $ofilename_adc";
-	print_Q_adc( $ban2, $fp2 );
-	close $fp2;
+	    my $ofilename_adc = sprintf("%s_%s_adc.txt", $basefile, $sheetname);
+	    print $ofilename_adc . "\n";
+	    open( my $fp2, ">$ofilename_adc") || die "ERROR: open $ofilename_adc";
+	    print_Q_adc( $ban2, $fp2 );
+	    close $fp2;
+        }
     }
 }
 
