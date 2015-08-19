@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 ; mode: python -*-
 #
 # 冗長な線を削除する
@@ -86,12 +85,8 @@ def min_route(line_mat, xmat, xd):
                 #print "(%d,%d)" % (x,y)
                 if xkeep[y,x] == 0: continue
                 #今いるのは、keepセル
-                #num = xmat[y,x]
-                #if found[ num ] == 1: continue
-                #今見ている線は、まだ始点まで到達していない
                 #最短経路となるセルを探す
                 pmin = None
-                #xdmin = xd[y,x] # 初期値は、今いるセルの、距離の値
                 xdmin = found[xmat[y,x]] # 初期値は、現時点での最短距離
                 for p in ( (y-1,x), (y,x+1), (y,x-1), (y+1,x) ):
                     if xmat[y,x] != xmat[p]: continue
@@ -161,15 +156,11 @@ def clean(line_mat, xmat):
     return xmat2
 
 def short_cut(line_mat, xmat2):
-    "迂回している個所を、最短経路になるように、引き直す"
+    "迂回している個所を、より短い経路になるように、引き直す"
     xmat3 = np.array(xmat2) # コピーする
     for num0 in range(0, line_mat.shape[0]):
         num = num0 + 1
         xd2 = distance1(num, line_mat, xmat3)
-        #line_mat_tmp = np.full( line_mat.shape, -1, np.integer ) # 初期値 -1
-        #line_mat_tmp[num0] = line_mat[num0]
-        #print "line_mat=\n", line_mat
-        #print "line_mat_tmp=\n", line_mat_tmp
         xkeep2 = min_route1(num, line_mat, xmat3, xd2)
         #print "xkeep2=\n", xkeep2
         # もともとnumのセルを空白にして、
