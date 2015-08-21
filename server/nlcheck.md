@@ -53,6 +53,10 @@ nlcheck.py --input 問題ファイル --target 回答ファイル --clean 掃除
 nlcheck.py --input 問題ファイル --target 回答ファイル --gif 出力先ファイル
 ```
 
+実行には、python-gdが必要です。
+
+
+
 ### 問題データのチェック機能 (numberlink.py)
 
 [これと](adc2015.md#curl-qcheck)同等の機能です。
