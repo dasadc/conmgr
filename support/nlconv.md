@@ -22,6 +22,12 @@ perl-Spreadsheet-XLSX.noarch                   0.13-8.el7                   epel
 sudo yum install perl-Spreadsheet-ParseExcel.x86_64 perl-Spreadsheet-XLSX.noarch
 ```
 
+Ubuntu 14.04 LTSでは、以下のようにしてインストールできます。
+```
+sudo apt-get install libspreadsheet-xlsx-perl
+```
+
+
 FreeBSDでも、パッケージかportsからインストールできます。
 
 パッケージが利用できない場合でも、CPANを利用して、かんたんにインストールできると思います。
