@@ -43,11 +43,15 @@ def transition( prev, now, prev_state ):
 def check():
     clk = TimeKeeper.get_or_insert('CLOCK')
     #                               ^^^^^ Key Name
+    if clk.enabled is None: clk.enabled = 1
     #print "clk=", clk
     if clk.state is None:
         clk.state = "init"
         clk.lastUpdate = datetime.datetime.now()
+        clk.enabled = 1
         clk.put()
+    if clk.enabled == 0:
+        return clk.state, clk.state
     now = datetime.datetime.now()
     same_slot, new_state = transition(clk.lastUpdate, now, clk.state)
     old_state = clk.state
@@ -57,3 +61,31 @@ def check():
         clk.put()
         #print "TK: state change", clk
     return new_state, old_state
+
+def get_enabled():
+    clk = TimeKeeper.get_or_insert('CLOCK')
+    return clk.enabled
+
+def set_enabled(val):
+    clk = TimeKeeper.get_or_insert('CLOCK')
+    if val == 0:
+        enabled = 0
+    else:
+        enabled = 1
+    if enabled != clk.enabled:
+        clk.enabled = enabled
+        clk.put()
+    return clk.enabled
+
+def get_state():
+    clk = TimeKeeper.get_or_insert('CLOCK')
+    return clk.state
+
+def set_state(val):
+    clk = TimeKeeper.get_or_insert('CLOCK')
+    if val in ('init', 'im0', 'Qup', 'im1', 'Aup', 'im2'):
+        if val != clk.state:
+            clk.state = val
+            clk.put()
+    ret = clk.state
+    return ret

@@ -111,6 +111,7 @@ RESTful API風になっています。
     /admin/Q/list                    DELETE 出題リストを削除する
     /admin/log                       GET,DELETE  ログデータ
     /admin/log/<key>/<number>        GET,DELETE  ログデータ
+    /admin/timekeeper/enabled        GET,PUT
     /score                           GET  スコア 未実装
     /score/<username>                GET  スコア 未実装
 

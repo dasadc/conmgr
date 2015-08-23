@@ -20,6 +20,15 @@ app.config.from_object(adcconfig)
 app.config.from_object(adcusers)
 app.secret_key = app.config['SECRET_KEY']
 
+state_str = { 'init': 'initial',
+              'im0': 'intermediate_0',
+              'Qup': 'Q_upload',
+              'im1': 'intermediate_1',
+              'Aup': 'A_upload',
+              'im2': 'intermediate_2',
+              }
+              
+
 def priv_admin():
     "ログイン中であり、admin権限をもったユーザか？"
     return ('login' in session and session['login']==1 and
@@ -48,6 +57,11 @@ def cmd_panel(username):
         tm = "Yes"
     else:
         tm = "No"
+    if g.state in state_str:
+        ststr = state_str[g.state]
+    else:
+        ststr = '???'+g.state
+    ststr += '(en=%d)' % timekeeper.get_enabled()
     return render_template('cmd.html',
                            login=url_for('login'),
                            logout=url_for('logout'),
@@ -60,7 +74,8 @@ def cmd_panel(username):
                            checkq=url_for('q_check'),
                            userlist=url_for('admin_user_list_get'),
                            me=url_for('admin_user_get', username=username),
-                           testmode=tm)
+                           testmode=tm,
+                           state=ststr)
 def from_browser():
     "webブラウザからアクセスしているかどうかの、いいかげんな判定ルール"
     if 'text/html' in request.headers['Accept'].split(','):
@@ -229,6 +244,35 @@ def admin_log_before(key, val):
     if not priv_admin():
         return adc_response("access forbidden", request_is_json(), 403)
     return user_log_before(None, key, val)
+    
+@app.route('/admin/timekeeper/enabled', methods=['GET','PUT'])
+def admin_timekeeper():
+    "timekeeperの有効、無効"
+    if not priv_admin():
+        return adc_response("access forbidden", request_is_json(), 403)
+    if request.method == 'GET':
+        val = timekeeper.get_enabled()
+        msg = "enabled=" + str(val)
+        return adc_response(msg, request_is_json())
+    # PUTの場合
+    val = request.data
+    if val.isdigit():
+        val = int(val)
+        ret = timekeeper.set_enabled(val)
+        msg = "enabled=" + str(ret)
+        return adc_response(msg, request_is_json())
+        
+@app.route('/admin/timekeeper/state', methods=['GET','PUT'])
+def admin_timekeeper_state():
+    "timekeeperのstate"
+    if not priv_admin():
+        return adc_response("access forbidden", request_is_json(), 403)
+    if request.method == 'GET':
+        val = timekeeper.get_state()
+    else: # PUTの場合
+        val = timekeeper.set_state(request.data)
+    msg = "state=" + val
+    return adc_response(msg, request_is_json())
     
 @app.route('/A', methods=['GET','DELETE'])
 def admin_A_all():

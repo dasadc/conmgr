@@ -62,3 +62,4 @@ class Log(ndb.Model):
 class TimeKeeper(ndb.Model):
     lastUpdate = ndb.DateTimeProperty()
     state = ndb.StringProperty()
+    enabled = ndb.IntegerProperty() # 0=disabled, 1=enabled

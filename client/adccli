@@ -56,6 +56,8 @@ admin command:
   delete-admin-a-all
   get-log [NUMBER (seconds|days)]
   delete-log [NUMBER (seconds|days)]
+  timekeeper-enabled [0|1]
+  timekeeper-state [init|im0|Qup|im1|Aup|im2]
 """ % (cli.config, cli.username, cli.url)
 
 def main():
@@ -234,6 +236,12 @@ def main():
                         print "%s" % (i['date'])
                     else:
                         print "%s %s: %s" % (i['date'], i['username'], i['what'])
+        elif a == 'timekeeper-enabled':
+            res = cli.timekeeper_enabled(args[1:])
+            print res[6]['msg']
+        elif a == 'timekeeper-state':
+            res = cli.timekeeper_state(args[1:])
+            print res[6]['msg']
         else:
             print "Error: Unknown command:", a
     #

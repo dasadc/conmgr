@@ -433,3 +433,23 @@ class ADCClient:
         res = self.http_request('DELETE', path, json=False)
         return self.fin(res)
 
+    def timekeeper_enabled(self, args):
+        self.parse_url()
+        path = '/admin/timekeeper/enabled'
+        if len(args) == 0:
+            res = self.http_request('GET', path)
+        else:
+            params = args[0]
+            res = self.http_request('PUT', path, params=params, json=False)
+        return self.fin(res)
+
+    def timekeeper_state(self, args):
+        self.parse_url()
+        path = '/admin/timekeeper/state'
+        if len(args) == 0:
+            res = self.http_request('GET', path)
+        else:
+            params = args[0]
+            res = self.http_request('PUT', path, params=params, json=False)
+        return self.fin(res)
+
