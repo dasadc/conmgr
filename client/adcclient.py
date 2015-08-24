@@ -433,6 +433,12 @@ class ADCClient:
         res = self.http_request('DELETE', path, json=False)
         return self.fin(res)
 
+    def score(self, args):
+        self.parse_url()
+        path = '/score'
+        res = self.http_request('GET', path, json=True)
+        return self.fin(res)
+
     def timekeeper_enabled(self, args):
         self.parse_url()
         path = '/admin/timekeeper/enabled'

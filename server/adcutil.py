@@ -29,6 +29,14 @@ def adc_response(msg, isjson, code=200, json_encoded=False):
     resp.headers['Content-Type'] = 'application/json' if isjson else 'text/html; charset=utf-8'
     return resp
 
+def adc_response_html(html, code=200):
+    template = 'raw.html'
+    body = render_template(template, raw=html)
+    resp = make_response(body)
+    resp.status_code = code
+    resp.headers['Content-Type'] = 'text/html; charset=utf-8'
+    return resp
+
 def adc_response_text(body, code=200):
     resp = make_response(body)
     resp.status_code = code
@@ -194,6 +202,20 @@ def get_Q_data(q_num, year=2015, fetch_num=5):
     if qn < 0 or len(qla.qs) <= qn:
         return None
     return qla.qs[q_num-1].get()
+
+def get_Q_author_all():
+    "出題の番号から、authorを引けるテーブルを作る"
+    qla = ndb.Key(QuestionListAll, 'master', parent=qdata_key()).get()
+    if qla is None:
+        return None
+    authors = ['']*(len(qla.qs)+1) # q_numは1から始まるので、+1しておく
+    qn = 1 # 出題番号
+    for q_key in qla.qs:
+        q = q_key.get()
+        authors[qn] = q.author
+        qn += 1
+        # q.qnum は、問題登録したときの番号であり、出題番号ではない
+    return authors
 
 def get_Q_data_text(q_num, year=2015, fetch_num=5):
     "問題のテキストを返す"
@@ -567,3 +589,107 @@ def Q_check(qtext):
     else:
         out = "NG\n" + hr + qtext + hr + res[3]
     return out, res[4]
+
+def calc_score_all():
+    "スコア計算"
+    authors = get_Q_author_all()
+    #print "authors=", authors
+    q_factors = {}
+    q_point = {}
+    ok_point = {}
+    bonus_point = {}
+    query = Answer.query(ancestor=userlist_key())
+    q = query.fetch()
+    all_numbers = {}
+    all_users = {}
+    for i in q:
+        #anum = 'A%d' % i.anum
+        anum = 'A%02d' % i.anum
+        username = i.owner
+        all_numbers[anum] = 1
+        all_users[username] = 1
+        # 正解ポイント
+        if not(anum in ok_point):
+            ok_point[anum] = {}
+        ok_point[anum][username] = i.judge
+        # 品質ポイント
+        if not(anum in q_factors):
+            q_factors[anum] = {}
+        q_factors[anum][username] = i.q_factor
+        # 出題ボーナスポイント
+        if i.judge == 1 and authors[i.anum] == username:
+            #print "check_bonus:", i.anum, i.judge, authors[i.anum], username
+            if not(anum in bonus_point):
+                bonus_point[anum] = {}
+            bonus_point[anum][username] = 1
+    #print "ok_point=", ok_point
+    #print "bonus_point=", bonus_point
+    #print "q_factors=", q_factors
+    # 品質ポイントを計算する
+    q_pt = 10.0
+    for anum, values in q_factors.iteritems(): # 問題番号ごとに
+        #print "anum=", anum
+        qf_total = 0.0 # Q_factorの合計
+        for user, qf in values.iteritems():
+            #print "qf=", qf
+            qf_total += qf
+        #print "qf_total=", qf_total
+        for user, qf in values.iteritems():
+            if qf_total == 0.0:
+                tmp = 0.0
+            else:
+                tmp = q_pt * qf / qf_total
+            if not anum in q_point:
+                q_point[anum] = {}
+            q_point[anum][user] = tmp
+    #print "q_point=", q_point
+    # 集計する
+    tmp = ['']*(len(all_numbers) + 1)
+    i = 0
+    for anum in sorted(all_numbers.keys()):
+        tmp[i] = anum
+        i += 1
+    tmp[i] = 'TOTAL'
+    score_board = {'/header/': tmp} # 見出しの行
+    for user in sorted(all_users.keys()):
+        #print user
+        if not(user in score_board):
+            score_board[user] = [0]*(len(all_numbers) + 1)
+        i = 0
+        ptotal = 0.0
+        for anum in sorted(all_numbers.keys()):
+            #print anum
+            p = 0.0
+            if user in ok_point[anum]: p += ok_point[anum][user]
+            if user in q_point[anum]:  p += q_point[anum][user]
+            if anum in bonus_point and user in bonus_point[anum]:
+                    p += bonus_point[anum][user]
+            #print "p=", p
+            score_board[user][i] = p
+            ptotal += p
+            i += 1
+        score_board[user][i] = ptotal
+    #print "score_board=", score_board
+    return score_board, ok_point, q_point, bonus_point, q_factors
+
+
+def html_score_board(score_board):
+    hd_key = '/header/'
+    out = '<table border=1>\n'
+    line = '<tr><th>-</th>'
+    for hd in score_board[hd_key]:
+        line += '<th>%s</th>' % hd
+    line += '</tr>\n'
+    out += line
+    for user in sorted(score_board.keys()):
+        if user == hd_key: continue
+        line = '<tr><th>%s</th>' % user
+        for val in score_board[user]:
+            line += '<td>%s</td>' % val
+        line += '</tr>\n'
+        out += line
+    out += '</table>\n'
+    print "out=\n", out
+        
+
+    return out

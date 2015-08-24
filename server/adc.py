@@ -74,6 +74,7 @@ def cmd_panel(username):
                            checkq=url_for('q_check'),
                            userlist=url_for('admin_user_list_get'),
                            me=url_for('admin_user_get', username=username),
+                           score=url_for('get_score'),
                            testmode=tm,
                            state=ststr)
 def from_browser():
@@ -557,6 +558,21 @@ def q_check():
     msg, ok = Q_check(qtext)
     return adc_response_text(msg)
 
+@app.route('/score', methods=['GET'])
+def get_score():
+    "スコア計算"
+    if not authenticated():
+        return adc_response("not login yet", request_is_json(), 401)
+    log_request(session['username'])
+    res = calc_score_all()
+    # if request_is_json():
+    #     #txt = json.dumps(res[0])
+    #     txt = str(res[0])
+    #     print "txt=",txt
+    #     return adc_response(txt, False) # なんかうまくいかない
+    html = html_score_board(res[0])
+    return adc_response_html(html)
+    
 @app.route('/2015/', methods=['GET'])
 def root():
     if authenticated() and not request_is_json():

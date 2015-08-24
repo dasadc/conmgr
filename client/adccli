@@ -43,6 +43,7 @@ command:
   put-user-alive MSG
   get-user-log [NUMBER (seconds|days)]
   delete-user-log [NUMBER (seconds|days)]
+  score
   get-root
 admin command:
   create-user USERNAME PASSWORD DISPLAYNAME UID GID
@@ -236,6 +237,10 @@ def main():
                         print "%s" % (i['date'])
                     else:
                         print "%s %s: %s" % (i['date'], i['username'], i['what'])
+        elif a == 'score':
+            res = cli.score(args[1:])
+            #print "res=",res
+            print res[6]['msg']
         elif a == 'timekeeper-enabled':
             res = cli.timekeeper_enabled(args[1:])
             print res[6]['msg']
