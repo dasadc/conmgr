@@ -72,6 +72,7 @@ class NLCheck:
     def __init__(self):
         self.debug = False
         self.verbose = False
+        self.bom = bytearray([0xef,0xbb,0xbf]) # UTF-8 BOM
         np.set_printoptions(linewidth=255)
 
     def read_input_file(self, file):
@@ -110,11 +111,16 @@ class NLCheck:
         pSIZE = re.compile('SIZE +([0-9]+)X([0-9]+)', re.IGNORECASE)
         pLINE_NUM = re.compile('LINE_NUM +([0-9]+)', re.IGNORECASE)
         pLINE = re.compile('LINE#(\d+) +\((\d+),(\d+)\)-\((\d+),(\d+)\)', re.IGNORECASE)
+        first = True
         while True:
             line = f.readline()
             if line == "": break # EOFのとき
             line = line.rstrip() # chompみたいに、改行コードを抜く
             if line == "": continue # 空行のとき
+            if first:
+                first = False
+                if line.startswith(self.bom):
+                    line = line[len(self.bom):] # UnicodeのBOMを削除
             if self.debug: print "line=|%s|" % str(line)
             m = pSIZE.match(line)
             if m is not None:
@@ -167,11 +173,16 @@ class NLCheck:
         line_cnt = 0
         results = []
         pSIZE = re.compile('SIZE +([0-9]+)X([0-9]+)', re.IGNORECASE)
+        first = True
         # "U" universal newline, \n, \r\n, \r
         while True:
             line = f.readline()
             eof = (line == "")
             line = line.rstrip() # chompみたいに、改行コードを抜く
+            if first:
+                first = False
+                if line.startswith(self.bom):
+                    line = line[len(self.bom):] # UnicodeのBOMを削除
             if line == "":       # 空行 or EOFのとき
                 if mat is not None:
                     results.append(mat) # 解を追加
@@ -383,6 +394,9 @@ class NLCheck:
 
     def check_size(self, size, mat):
         "行列の大きさチェック"
+        if size is None:
+            print "ERROR: SIZE is none"
+            return False
         (y,x) = mat.shape
         if size[0] == x and size[1] == y:
             return True
@@ -541,27 +555,28 @@ class NLCheck:
                 continue
             r1 = self.check_1(input_data, mat)
             if self.verbose: print "check_1", r1
-            try:
-                r2 = self.check_2(input_data, mat)
-            except IndexError, e:
-                print "IndexError:", e
-            if self.verbose: print "check_2", r2
-            try:
-                xmat = self.extend_matrix(mat)
-                r3 = self.check_3(input_data, xmat)
-            except IndexError, e:
-                print "IndexError:", e
-            if self.verbose: print "check_3", r3
-            try:
-                r4 = self.check_4(xmat)
-            except IndexError, e:
-                print "IndexError:", e
-            if self.verbose: print "check_4", r4
-            try:
-                r5 = self.check_5(input_data, xmat)
-            except IndexError, e:
-                print "IndexError:", e
-            if self.verbose: print "check_5", r5
+            if r1:
+                try:
+                    r2 = self.check_2(input_data, mat)
+                except IndexError, e:
+                    print "IndexError:", e
+                if self.verbose: print "check_2", r2
+                try:
+                    xmat = self.extend_matrix(mat)
+                    r3 = self.check_3(input_data, xmat)
+                except IndexError, e:
+                    print "IndexError:", e
+                if self.verbose: print "check_3", r3
+                try:
+                    r4 = self.check_4(xmat)
+                except IndexError, e:
+                    print "IndexError:", e
+                if self.verbose: print "check_4", r4
+                try:
+                    r5 = self.check_5(input_data, xmat)
+                except IndexError, e:
+                    print "IndexError:", e
+                if self.verbose: print "check_5", r5
             #
             res = r1 and r2 and r3 and r4 and r5
             print "res=",res
