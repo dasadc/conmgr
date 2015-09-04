@@ -598,6 +598,8 @@ def calc_score_all():
     q_point = {}
     ok_point = {}
     bonus_point = {}
+    result = {}
+    misc = {}
     query = Answer.query(ancestor=userlist_key())
     q = query.fetch()
     all_numbers = {}
@@ -617,14 +619,23 @@ def calc_score_all():
             q_factors[anum] = {}
         q_factors[anum][username] = i.q_factor
         # 出題ボーナスポイント
-        if i.judge == 1 and authors[i.anum] == username:
+        if i.judge in (0,1) and authors[i.anum] == username:
             #print "check_bonus:", i.anum, i.judge, authors[i.anum], username
             if not(anum in bonus_point):
                 bonus_point[anum] = {}
-            bonus_point[anum][username] = 1
+            bonus_point[anum][username] = i.judge
+        # result(ログメッセージ)
+        if not(anum in result):
+            result[anum] = {}
+        result[anum][username] = i.result
+        # (その他) date, cpu_sec, mem_byte, misc_text
+        if not(anum in misc):
+            misc[anum] = {}
+        misc[anum][username] = [i.date, i.cpu_sec, i.mem_byte, i.misc_text]
     #print "ok_point=", ok_point
     #print "bonus_point=", bonus_point
     #print "q_factors=", q_factors
+    #print "result=\n", result
     # 品質ポイントを計算する
     q_pt = 10.0
     for anum, values in q_factors.iteritems(): # 問題番号ごとに
@@ -670,7 +681,7 @@ def calc_score_all():
             i += 1
         score_board[user][i] = ptotal
     #print "score_board=", score_board
-    return score_board, ok_point, q_point, bonus_point, q_factors
+    return score_board, ok_point, q_point, bonus_point, q_factors, result, misc
 
 
 def html_score_board(score_board):
@@ -685,11 +696,9 @@ def html_score_board(score_board):
         if user == hd_key: continue
         line = '<tr><th>%s</th>' % user
         for val in score_board[user]:
-            line += '<td>%s</td>' % val
+            line += '<td>%1.1f</td>' % val
         line += '</tr>\n'
         out += line
     out += '</table>\n'
-    print "out=\n", out
-        
-
+    #print "out=\n", out
     return out

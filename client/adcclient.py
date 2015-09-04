@@ -439,6 +439,12 @@ class ADCClient:
         res = self.http_request('GET', path, json=True)
         return self.fin(res)
 
+    def score_dump(self, args):
+        self.parse_url()
+        path = '/score/dump'
+        res = self.http_request('GET', path, json=True)
+        return self.fin(res)
+
     def timekeeper_enabled(self, args):
         self.parse_url()
         path = '/admin/timekeeper/enabled'

@@ -524,6 +524,9 @@ def user_password(username):
 def q_get(q_num):
     if not authenticated():
         return adc_response("not login yet", request_is_json(), 401)
+    if not priv_admin():
+        if g.state != 'Aup':
+            return adc_response("deadline passed", request_is_json(), 503)
     log_request(session['username'])
     result = get_Q_data(q_num)
     return adc_response_Q_data(result)
@@ -532,8 +535,9 @@ def q_get(q_num):
 def q_get_list():
     if not authenticated():
         return adc_response("not login yet", request_is_json(), 401)
-    if g.state != 'Aup':
-        return adc_response("deadline passed", request_is_json(), 503)
+    if not priv_admin():
+        if g.state != 'Aup':
+            return adc_response("deadline passed", request_is_json(), 503)
     log_request(session['username'])
     if from_browser():
         msg = get_Q_all(html=True)
@@ -558,6 +562,21 @@ def q_check():
     msg, ok = Q_check(qtext)
     return adc_response_text(msg)
 
+@app.route('/score/dump', methods=['GET'])
+def score_dump():
+    "スコア計算"
+    if not authenticated():
+        return adc_response("not login yet", request_is_json(), 401)
+    if not priv_admin():                    # 管理者ではない
+        return adc_response("access forbidden", request_is_json(), 403)
+    log_request(session['username'])
+    import cPickle as pickle
+    import base64
+    res = calc_score_all()
+    bin = pickle.dumps(res)
+    txt = base64.b64encode(bin)
+    return adc_response_text(txt)
+    
 @app.route('/score', methods=['GET'])
 def get_score():
     "スコア計算"

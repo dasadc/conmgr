@@ -44,6 +44,7 @@ command:
   get-user-log [NUMBER (seconds|days)]
   delete-user-log [NUMBER (seconds|days)]
   score
+  score-dump
   get-root
 admin command:
   create-user USERNAME PASSWORD DISPLAYNAME UID GID
@@ -239,6 +240,10 @@ def main():
                         print "%s %s: %s" % (i['date'], i['username'], i['what'])
         elif a == 'score':
             res = cli.score(args[1:])
+            #print "res=",res
+            print res[6]['msg']
+        elif a == 'score-dump':
+            res = cli.score_dump(args[1:])
             #print "res=",res
             print res[6]['msg']
         elif a == 'timekeeper-enabled':

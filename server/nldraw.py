@@ -78,7 +78,11 @@ def is_connected(xmat, x, y):
     "N,E,W,S方向と、番号が同じか？"
     x1 = 1 + x  # xmatでは、座標が1ずつずれるので
     y1 = 1 + y
-    num = xmat[y1,x1]
+    try:
+        num = xmat[y1,x1]
+    except IndexError, e:
+        print "IndexError:", e
+        return (False,False,False,False) # ???
     # n ■    上と同じ番号か？
     #   □
     n = (xmat[y1-1,x1] == num)
@@ -104,7 +108,11 @@ def drawLines(img, colors, size, xmat):
             y0 = y*unit
             cx = x0 + unit/2
             cy = y0 + unit/2
-            num = xmat[y1,x1]
+            try:
+                num = xmat[y1,x1]
+            except IndexError, e:
+                print "IndexError:", e
+                num = -1
             if num == 0:
                 img.filledRectangle((x0,y0),(x0+unit,y0+unit),cgray)
                 continue
