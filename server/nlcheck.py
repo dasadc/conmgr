@@ -65,6 +65,8 @@ import re
 import io
 from os.path import basename
 
+LAYER_MAX=8 # ADC2016 restriction
+
 
 class NLCheck:
     "アルゴリズムデザインコンテスト（ナンバーリンクパズル）の回答チェック"
@@ -108,10 +110,21 @@ class NLCheck:
         size = None
         line_num = 0
         line_mat = None
+        via_mat = None
+
         pSIZE = re.compile('SIZE +([0-9]+)X([0-9]+)', re.IGNORECASE)
         pLINE_NUM = re.compile('LINE_NUM +([0-9]+)', re.IGNORECASE)
         pLINE = re.compile('LINE#(\d+) +\((\d+),(\d+)\)-\((\d+),(\d+)\)', re.IGNORECASE)
         first = True
+
+        layer_num = 1 # number of layers
+        pSIZE3D = re.compile('SIZE +([0-9]+)X([0-9]+)X([0-9]+)', re.IGNORECASE)
+        pLINE3D = re.compile('LINE#(\d+) +\((\d+),(\d+),(\d+)\)[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
+
+        viaiter = 1
+        pVIA3D_name = re.compile('VIA#([a-z]+) +(\((\d+),(\d+),(\d+)\))+', re.IGNORECASE) # use match
+        pVIA3D_pos  = re.compile('(\((\d+),(\d+),(\d+)\))', re.IGNORECASE) # use finditer
+
         while True:
             line = f.readline()
             if line == "": break # EOFのとき
@@ -122,29 +135,99 @@ class NLCheck:
                 if line.startswith(self.bom):
                     line = line[len(self.bom):] # UnicodeのBOMを削除
             if self.debug: print "line=|%s|" % str(line)
-            m = pSIZE.match(line)
+
+            m = pSIZE3D.match(line)
             if m is not None:
-                size = (int(m.group(1)), int(m.group(2)))
+                #size = (int(m.group(1)), int(m.group(2)))
+                sizex, sizey, sizez = m.groups()
+                print m.groups()
+                size = (int(sizex), int(sizey), int(sizez))
+                layer_num = int(sizez)
+                print "#layer=%d, size= %d x %d" % (layer_num, size[0], size[1])
                 continue
+
+            m = pSIZE.match(line)
+            l = 0 # default layer number is 0
+            if m is not None:
+                size = (int(m.group(1)), int(m.group(2)), 1)
+                layer_num = 1
+                print "#layer is implicitly 1, size= %d x %d" % (size[0], size[1])
+                continue
+
             m = pLINE_NUM.match(line)
             if m is not None:
                 line_num = int(m.group(1))
                 # line_num行、4列の行列
-                line_mat = np.zeros((line_num,4), dtype=np.integer)
+                #line_mat = np.zeros((line_num,4), dtype=np.integer)
+                line_mat = np.zeros((line_num,6), dtype=np.integer)
+                via_mat = np.zeros((line_num,3*LAYER_MAX), dtype=np.integer)
                 continue
+
             m = pLINE.match(line)
             if m is not None:
-                num = int(m.group(1)) # LINE#番号
+                #num = int(m.group(1)) # LINE#番号
+                num, sx, sy, ex, ey = m.groups()
+                # layer is implicitly set as 1
+                sz = 1
+                ez = 1
+                num = int(num)
                 if num <= 0 or line_num < num:
                     print "ERROR: LINE# range: ", str(line)
                     break
-                for i in range(0,4):
-                    line_mat[num-1, i] = int(m.group(2+i))
+                #for i in range(0,4):
+                #    line_mat[num-1, i] = int(m.group(2+i))
+                line_mat[num-1, 0] = int(sx) # 
+                line_mat[num-1, 1] = int(sy) # 
+                line_mat[num-1, 2] = 1       # layer no. of start edge
+                line_mat[num-1, 3] = int(ex) #
+                line_mat[num-1, 4] = int(ey) #
+                line_mat[num-1, 5] = 1       # layer no. of end edge
+                continue
+
+            m = pLINE3D.match(line)
+            if m is not None:
+                num, sx, sy, sz, ex, ey, ez = m.groups()
+                if not (1 <= int(sz) <= layer_num):
+                    print "ERROR: start layer range: ", str(line)
+                    break
+                if not (1 <= int(ez) <= layer_num):
+                    print "ERROR: end   layer range: ", str(line)
+                    break
+                num = int(num)
+                if num <= 0 or line_num < num:
+                    print "ERROR: LINE# num range: ", str(line)
+                    break
+                line_mat[num-1, 0] = int(sx)
+                line_mat[num-1, 1] = int(sy)
+                line_mat[num-1, 2] = int(sz)
+                line_mat[num-1, 3] = int(ex)
+                line_mat[num-1, 4] = int(ey)
+                line_mat[num-1, 5] = int(ez)
+                continue
+
+            m = pVIA3D_name.match(line)
+            viadic = dict()
+            if m is not None:
+                v = m.groups()
+                viadic[v] = viaiter
+                positer = 0
+                for m in pVIA3D_pos.finditer(line):
+                    x,y,z = m.groups()[1:]
+                    x = int(x)
+                    y = int(y)
+                    z = int(z)
+                    assert(1 <= z <= layer_num)
+                    via_mat[viaiter-1, positer*3+0] = x
+                    via_mat[viaiter-1, positer*3+1] = y
+                    via_mat[viaiter-1, positer*3+2] = z
+                    positer+=1
+                viaiter += 1
                 continue
             print "WARNING: unknown: ", str(line)
         #print "size=",size
         #print "line_num=",line_num
-        #print line_mat
+        print line_mat
+        print via_mat
         return (size, line_num, line_mat)
 
 
@@ -171,8 +254,11 @@ class NLCheck:
         size = None
         mat = None
         line_cnt = 0
+        layer_num = 1
         results = []
         pSIZE = re.compile('SIZE +([0-9]+)X([0-9]+)', re.IGNORECASE)
+        pLAYER = re.compile('LAYER +([0-9]+)', re.IGNORECASE)
+        pSIZE3D = re.compile('SIZE +([0-9]+)X([0-9]+)X([0-9]+)', re.IGNORECASE)
         first = True
         # "U" universal newline, \n, \r\n, \r
         while True:
@@ -184,35 +270,63 @@ class NLCheck:
                 if line.startswith(self.bom):
                     line = line[len(self.bom):] # UnicodeのBOMを削除
             if line == "":       # 空行 or EOFのとき
-                if mat is not None:
-                    results.append(mat) # 解を追加
-                    mat = None
+                if mat is not None: # 空行
                     line_cnt = 0
                     if self.debug: print ""
                 if eof:
+                    results.append(mat) # 解を追加
+                    print mat
+                    mat = None
                     break
                 else:
                     continue
             if self.debug: print "line=|%s|" % str(line)
+
             # まず SIZE行があるはず
+            # 3D SIZE行があるはず
+            m = pSIZE3D.match(line)
+            if m is not None:
+                # 3D SIZE行が現れた
+                if size is not None:
+                    # ２度め以降のSIZEに対してはWarning
+                    print "WARNING: too many SIZE"
+                size = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                print "SIZE 3D = ", size
+                continue
+            #else:
+            #    if size is None:
+            #        # まだSIZE行が現れていない
+            #        print "WARNING: unknown: ", str(line)
+            #        continue
+            # 2D SIZE行かも
             m = pSIZE.match(line)
             if m is not None:
                 # SIZE行が現れた
                 if size is not None:
+                    # ２度め以降のSIZEに対してはWarning
                     print "WARNING: too many SIZE"
-                size = (int(m.group(1)), int(m.group(2)))
+                size = (int(m.group(1)), int(m.group(2)), 1) # Z軸定義が無いとき、１と仮定する
                 continue
             else:
                 if size is None:
                     # まだSIZE行が現れていない
                     print "WARNING: unknown: ", str(line)
                     continue
+
+            # 次にLAYER指定があるはず。無い状態ではLAYER=1とみなす
+            m = pLAYER.match(line)
+            if m is not None:
+                # LAYER行が現れた
+                layer_num = int(m.group(1))
+                line_cnt = 0
+                continue
+
             # matを初期化
             if mat is None:
                 if size is None:
                     print "ERROR: no SIZE"
                     break
-                mat = np.zeros((size[1],size[0]), dtype=np.integer)
+                mat = np.zeros((size[2],size[1],size[0]), dtype=np.integer)
             # カンマ区切りの数値の行のはず
             data = line.split(",")
             if len(data) == 1:
@@ -228,19 +342,19 @@ class NLCheck:
                     val = int(data[i])
                 except ValueError:
                     print "ERROR: illegal value: ", str(data[i])
-                mat[line_cnt, i] = val
+                mat[layer_num-1, line_cnt, i] = val
             line_cnt += 1
         return results
 
 
     def extend_matrix(self, mat):
         "行列の上下左右を1行/列ずつ拡大する"
-        xmat = np.zeros( (mat.shape[0]+2, mat.shape[1]+2), mat.dtype )
-        xmat[1:(mat.shape[0]+1):1, 1:(mat.shape[1]+1):1] = mat
+        xmat = np.zeros( (mat.shape[0]+2, mat.shape[1]+2, mat.shape[2]+2), mat.dtype )
+        xmat[1:(mat.shape[0]+1):1, 1:(mat.shape[1]+1):1, 1:(mat.shape[2]+1):1] = mat
         return xmat
 
 
-    def is_terminal(self, xmat, x, y):
+    def is_terminal(self, xmat, x, y, z):
         "線の端点か？"
         # 端点とは?
         # 
@@ -264,27 +378,27 @@ class NLCheck:
         #
         x1 = 1 + x  # xmatでは、座標が1ずつずれるので
         y1 = 1 + y
-        num = xmat[y1,x1] # 注目点の数字
-        eastEq     = (xmat[y1,x1+1] == num)
-        northEq    = (xmat[y1-1,x1] == num)
-        westEq     = (xmat[y1,x1-1] == num)
-        southEq    = (xmat[y1+1,x1] == num)
-        eastNotEq  = (xmat[y1,x1+1] != num)
-        northNotEq = (xmat[y1-1,x1] != num)
-        westNotEq  = (xmat[y1,x1-1] != num)
-        southNotEq = (xmat[y1+1,x1] != num)
+        num = xmat[z,y1,x1] # 注目点の数字
+        eastEq     = (xmat[z,y1,x1+1] == num)
+        northEq    = (xmat[z,y1-1,x1] == num)
+        westEq     = (xmat[z,y1,x1-1] == num)
+        southEq    = (xmat[z,y1+1,x1] == num)
+        eastNotEq  = (xmat[z,y1,x1+1] != num)
+        northNotEq = (xmat[z,y1-1,x1] != num)
+        westNotEq  = (xmat[z,y1,x1-1] != num)
+        southNotEq = (xmat[z,y1+1,x1] != num)
         #print "num=%d xpos=(%d,%d)" % (num, x1,y1)
         #print eastEq,northEq,westEq,southEq
         #print eastNotEq,northNotEq,westNotEq,southNotEq
-        if ( eastEq    and northNotEq and westNotEq and southNotEq or
-             eastNotEq and northEq    and westNotEq and southNotEq or
-             eastNotEq and northNotEq and westEq    and southNotEq or
-             eastNotEq and northNotEq and westNotEq and southEq ) :
+        if ( (eastEq    and northNotEq and westNotEq and southNotEq) or
+             (eastNotEq and northEq    and westNotEq and southNotEq) or
+             (eastNotEq and northNotEq and westEq    and southNotEq) or
+             (eastNotEq and northNotEq and westNotEq and southEq   ) ) :
             return True
         else:
             return False
 
-    def is_branched(self, xmat, x, y):
+    def is_branched(self, xmat, x, y, z):
         "線が枝分かれしているか？"
         # 枝分かれとは?
         # 
@@ -304,18 +418,18 @@ class NLCheck:
         #
         x1 = 1 + x  # xmatでは、座標が1ずつずれるので
         y1 = 1 + y
-        num = xmat[y1,x1] # 注目点の数字
-        eastEq     = 1 if (xmat[y1,  x1+1] == num) else 0
-        northEq    = 1 if (xmat[y1-1,x1  ] == num) else 0
-        westEq     = 1 if (xmat[y1,  x1-1] == num) else 0
-        southEq    = 1 if (xmat[y1+1,x1  ] == num) else 0
+        num = xmat[z,y1,x1] # 注目点の数字
+        eastEq     = 1 if (xmat[z, y1,  x1+1] == num) else 0
+        northEq    = 1 if (xmat[z, y1-1,x1  ] == num) else 0
+        westEq     = 1 if (xmat[z, y1,  x1-1] == num) else 0
+        southEq    = 1 if (xmat[z, y1+1,x1  ] == num) else 0
         #print "(%d,%d) %d %d %d %d  %d" % (x,y,eastEq,northEq,westEq,southEq,(eastEq + northEq + westEq + southEq))
         if ( 3 <= eastEq + northEq + westEq + southEq ):
             return True
         else:
             return False
 
-    def is_corner(self, xmat, x, y):
+    def is_corner(self, xmat, x, y, z):
         "線が折れ曲がった角の場所か？"
         # 折れ曲がり、コーナー、とは?
         # 
@@ -335,11 +449,11 @@ class NLCheck:
         #
         x1 = 1 + x  # xmatでは、座標が1ずつずれるので
         y1 = 1 + y
-        num = xmat[y1,x1] # 注目点の数字
-        eastEq     = 1 if (xmat[y1,  x1+1] == num) else 0
-        northEq    = 1 if (xmat[y1-1,x1  ] == num) else 0
-        westEq     = 1 if (xmat[y1,  x1-1] == num) else 0
-        southEq    = 1 if (xmat[y1+1,x1  ] == num) else 0
+        num = xmat[z, y1,x1] # 注目点の数字
+        eastEq     = 1 if (xmat[z, y1,  x1+1] == num) else 0
+        northEq    = 1 if (xmat[z, y1-1,x1  ] == num) else 0
+        westEq     = 1 if (xmat[z, y1,  x1-1] == num) else 0
+        southEq    = 1 if (xmat[z, y1+1,x1  ] == num) else 0
         #print "(%d,%d) %d %d %d %d  %d" % (x,y,eastEq,northEq,westEq,southEq,(eastEq + northEq + westEq + southEq))
         # 以下の判定では、枝分かれ個所も、折れ曲がりだと見なしている。枝分かれは不正解なので、このままでOK
         if (eastEq  and northEq or
@@ -351,16 +465,16 @@ class NLCheck:
             return False
 
 
-    def clearConnectedLine(self, xmat, clear, x1, y1):
+    def clearConnectedLine(self, xmat, clear, x1, y1, z):
         "線を１本消してみる"
         #print x1,y1
-        num = xmat[y1,x1]
-        clear[y1,x1] = 0
+        num = xmat[z,y1,x1]
+        clear[z,y1,x1] = 0
         # 線が連続しているなら、消す
         neighbors = [[y1,x1+1], [y1-1,x1], [y1,x1-1], [y1+1,x1]]
         for [ny,nx] in neighbors:
-            if xmat[ny,nx] == num and clear[ny,nx] != 0:
-                self.clearConnectedLine(xmat, clear, nx,ny) # 再帰
+            if xmat[z,ny,nx] == num and clear[z,ny,nx] != 0:
+                self.clearConnectedLine(xmat, clear, nx,ny,z) # 再帰
 
 
     def check_filename(self, absinputf, abstargetf):
@@ -397,8 +511,8 @@ class NLCheck:
         if size is None:
             print "ERROR: SIZE is none"
             return False
-        (y,x) = mat.shape
-        if size[0] == x and size[1] == y:
+        (z,y,x) = mat.shape
+        if size == (x,y,z):
             return True
         else:
             return False
@@ -409,21 +523,21 @@ class NLCheck:
         (size, line_num, line_mat) = input_data
         judge = True
         if self.check_size(size, mat) == False:
-            print "check_1: mismatch matrix size"
+            print "check_1: mismatch matrix size: SIZE=", size, "matrix=", mat.shape
             judge = False
         else:
             for line in range(1, line_num+1):
-                (x0,y0,x1,y1) = line_mat[line-1]
+                (x0,y0,z0,x1,y1,z1) = line_mat[line-1]
                 #print "LINE#%d (%d,%d)-(%d,%d)" % (line,x0,y0,x1,y1)
                 #print "mat=", mat[y0,x0], "mat=", mat[y1,x1]
-                if mat[y0,x0] == line and mat[y1,x1] == line:
+                if mat[z0-1,y0,x0] == line and mat[z1-1,y1,x1] == line:
                     #print "OK"
                     pass
                 else:
                     judge = False
                     print "check_1: mismatch line number:", line
-                    print "  LINE#%d (%d,%d)-(%d,%d)" % (line,x0,y0,x1,y1)
-                    print "  mat=", mat[y0,x0], "mat=", mat[y1,x1]
+                    print "  LINE#%d (%d,%d,%d)-(%d,%d,%d)" % (line,x0,y0,z0,x1,y1,z1)
+                    print "  mat=", mat[z0-1,y0,x0], "mat=", mat[z1-1,y1,x1]
         return judge
 
 
@@ -432,13 +546,14 @@ class NLCheck:
         (size, line_num, line_mat) = input_data
         judge = True
         # 1からline_numまでの数字が出現するはず。または空きマス＝0
-        (sx,sy) = size
-        for y in range(0,sy):
-            for x in range(0,sx):
-                num = mat[y,x]
-                if num < 0 or line_num < num:
-                    print "check_2: strange number %d at (%d,%d)" % (num,x,y)
-                    judge = False
+        (sx,sy,sz) = size
+        for z in range(0,sz):
+            for y in range(0,sy):
+                for x in range(0,sx):
+                    num = mat[z,y,x]
+                    if num < 0 or line_num < num:
+                        print "check_2: strange number %d at (%d,%d)" % (num,x,y)
+                        judge = False
         return judge
 
 
@@ -447,12 +562,12 @@ class NLCheck:
         (size, line_num, line_mat) = input_data
         judge = True
         for line in range(1, line_num+1):
-            (x0,y0,x1,y1) = line_mat[line-1]
-            if self.is_terminal(xmat, x0,y0) == False:
-                print "check_3: not terminal (%d,%d) #%d" % (x0,y0,xmat[y0+1,x0+1])
+            (x0,y0,z0,x1,y1,z1) = line_mat[line-1]
+            if self.is_terminal(xmat, x0,y0,z0) == False:
+                print "check_3: not terminal (%d,%d,%d) #%d" % (x0,y0,z0,xmat[z0,y0+1,x0+1])
                 judge = False
-            if self.is_terminal(xmat, x1,y1) == False:
-                print "check_3: not terminal (%d,%d) #%d" % (x1,y1,xmat[y1+1,x1+1])
+            if self.is_terminal(xmat, x1,y1,z1) == False:
+                print "check_3: not terminal (%d,%d,%d) #%d" % (x1,y1,z1,xmat[z1,y1+1,x1+1])
                 judge = False
         return judge
 
@@ -460,12 +575,13 @@ class NLCheck:
     def check_4(self, xmat):
         "チェック4. 線は枝分かれしない。"
         judge = True
-        for y in range(0, xmat.shape[0]-2):
-            for x in range(0, xmat.shape[1]-2):
-                if xmat[y+1,x+1] == 0: continue # 0は空き地。xmatのズレ補正必要
-                if self.is_branched(xmat, x,y) == True:
-                    print "check_4: found branch (%d,%d) #%02d" % (x,y,xmat[y+1,x+1]) # 座標が1だけずれている
-                    judge = False
+        for z in range(0, xmat.shape[0]-2):
+            for y in range(0, xmat.shape[1]-2):
+                for x in range(0, xmat.shape[2]-2):
+                    if xmat[z, y+1,x+1] == 0: continue # 0は空き地。xmatのズレ補正必要
+                    if self.is_branched(xmat, x,y,z) == True:
+                        print "check_4: found branch (%d,%d,%d) #%02d" % (x,y,z,xmat[z,y+1,x+1]) # 座標が1だけずれている
+                        judge = False
         return judge
 
 
@@ -475,9 +591,11 @@ class NLCheck:
         judge = True
         clear = xmat.copy()
         for line in range(1, line_num+1):
-            (x0,y0,x1,y1) = line_mat[line-1]
+            (x0,y0,z0,x1,y1,z1) = line_mat[line-1]
             # 始点から線をたどって、消していく
-            self.clearConnectedLine(xmat, clear, x0+1, y0+1)
+            self.clearConnectedLine(xmat, clear, x0+1, y0+1, z0)
+            # 終点から線をたどって、消していく
+            self.clearConnectedLine(xmat, clear, x1+1, y1+1, z1)
             #print clear[1:clear.shape[0]-1,1:clear.shape[1]-1]
         if clear.sum() == 0:
             # すべて消えた
@@ -507,25 +625,27 @@ class NLCheck:
     def line_length(self, nlines, mat):
         "線の長さを計算する"
         length = np.zeros(nlines+1, dtype=np.integer)
-        for y in range(0, mat.shape[0]):
-            for x in range(0, mat.shape[1]):
-                num = mat[y,x]
-                if num == 0: continue
-                length[num] += 1
-                #print "line_length: (%d,%d) #%02d %d" % (x,y,num,length[num])
+        for z in range(0, mat.shape[0]):
+            for y in range(0, mat.shape[1]):
+                for x in range(0, mat.shape[2]):
+                    num = mat[z,y,x]
+                    if num == 0: continue
+                    length[num] += 1
+                    #print "line_length: (%d,%d) #%02d %d" % (x,y,num,length[num])
         if self.verbose: print "length=", length[1:] # 線ごとの線長
         return length.sum()
 
     def count_corners(self, nlines, xmat):
         "折れ曲がり回数を計算する"
         corner = np.zeros(nlines+1, dtype=np.integer)
-        for y in range(0, xmat.shape[0]-2):
-            for x in range(0, xmat.shape[1]-2):
-                num = xmat[y+1,x+1]
-                if num == 0: continue
-                if self.is_corner(xmat, x, y) == True:
-                    corner[num] += 1
-                    #print "corner: (%d,%d) #%02d %d" % (x,y,num,corner[num])
+        for z in range(0, xmat.shape[0]-2):
+            for y in range(0, xmat.shape[1]-2):
+                for x in range(0, xmat.shape[2]-2):
+                    num = xmat[z,y+1,x+1]
+                    if num == 0: continue
+                    if self.is_corner(xmat, x, y, z) == True:
+                        corner[num] += 1
+                        #print "corner: (%d,%d) #%02d %d" % (x,y,num,corner[num])
         if self.verbose: print "corner=", corner[1:] # 線ごとの角の数
         return corner.sum()
     
