@@ -65,7 +65,28 @@ import re
 import io
 from os.path import basename
 
-LAYER_MAX=8 # ADC2016 restriction
+VER_2016="ADC2016"
+VERSION=VER_2016
+
+LINE_TERMINAL_MAX=9999 # ADC2016 restriction
+LAYER_MAX=9999         # ADC2016 restriction
+if VERSION == VER_2016:
+    """ ADC2016 constraints
+    C2016_1. 問題フォーマットにて、各LINEの端点は2個（分岐しない）
+    C2016_2. 問題フォーマットにて、LINE数 >= VIA数
+    C2016_3. 問題フォーマットにて、各VIAの位置(x,y,z)がSIZE内である
+    C2016_4. 問題フォーマットにて、各VIAの各層での位置(x,y)がすべて一致している
+    C2016_5. 問題フォーマットにて、無駄なVIAが存在しない = 層をまたぐLINE数とVIA数が同じ
+    C2016_6. 回答フォーマット中で、問題のViaの位置に数字がある（アルファベットのままではない）
+    C2016_7. 回答フォーマット中で、Viaの端層の数字は、端点である
+    C2016_8. 回答フォーマット中で、via途中層の数字は、孤立している
+    C2016_9. 回答フォーマット中で、アルファベット同士の接続はナシ
+    C2016_10. 問題フォーマットにて、層数は最大で8
+    """
+    " C2016_1. 問題フォーマットにて、各LINEの端点は2個（分岐しない）"
+    LINE_TERMINAL_MAX=2 # ADC2016 restriction
+    " C2016_10. 問題フォーマットにて、層数は最大で8"
+    LAYER_MAX=8         # ADC2016 restriction
 
 
 class NLCheck:
@@ -107,7 +128,7 @@ class NLCheck:
         Args:
             f: fileオブジェクト
         """
-        size = None
+        size = None # (x,y,z): z means number of layers
         line_num = 0
         line_mat = None
         via_mat = None
@@ -117,13 +138,16 @@ class NLCheck:
         pLINE = re.compile('LINE#(\d+) +\((\d+),(\d+)\)-\((\d+),(\d+)\)', re.IGNORECASE)
         first = True
 
-        layer_num = 1 # number of layers
         pSIZE3D = re.compile('SIZE +([0-9]+)X([0-9]+)X([0-9]+)', re.IGNORECASE)
         pLINE3D = re.compile('LINE#(\d+) +\((\d+),(\d+),(\d+)\)[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
+        pLINE3D_name = re.compile('LINE#(\d+) +\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
+        pLINE3D_pos  = re.compile('[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
 
-        viaiter = 1
+        via_number = 1
         pVIA3D_name = re.compile('VIA#([a-z]+) +(\((\d+),(\d+),(\d+)\))+', re.IGNORECASE) # use match
         pVIA3D_pos  = re.compile('(\((\d+),(\d+),(\d+)\))', re.IGNORECASE) # use finditer
+
+        via_dic = dict()
 
         while True:
             line = f.readline()
@@ -140,10 +164,9 @@ class NLCheck:
             if m is not None:
                 #size = (int(m.group(1)), int(m.group(2)))
                 sizex, sizey, sizez = m.groups()
-                print m.groups()
                 size = (int(sizex), int(sizey), int(sizez))
                 layer_num = int(sizez)
-                print "#layer=%d, size= %d x %d" % (layer_num, size[0], size[1])
+                if self.debug: print "#layer=%d, size= %d x %d" % (layer_num, size[0], size[1])
                 continue
 
             m = pSIZE.match(line)
@@ -151,7 +174,7 @@ class NLCheck:
             if m is not None:
                 size = (int(m.group(1)), int(m.group(2)), 1)
                 layer_num = 1
-                print "#layer is implicitly 1, size= %d x %d" % (size[0], size[1])
+                if self.debug: print "#layer is implicitly set to 1, size= %d x %d" % (size[0], size[1])
                 continue
 
             m = pLINE_NUM.match(line)
@@ -161,6 +184,28 @@ class NLCheck:
                 #line_mat = np.zeros((line_num,4), dtype=np.integer)
                 line_mat = np.zeros((line_num,6), dtype=np.integer)
                 via_mat = np.zeros((line_num,3*LAYER_MAX), dtype=np.integer)
+                continue
+
+            m = pLINE3D_name.match(line)
+            if m is not None:
+                num = m.groups()[0]
+                num = int(num)
+                assert(1 <= num <= line_num)
+                positer = 0
+                for m in pLINE3D_pos.finditer(line):
+                    x,y,z = m.groups()
+                    x = int(x)
+                    y = int(y)
+                    z = int(z)
+                    size_x, size_y, layer_num = size
+                    assert(1 <= x <= size_x)
+                    assert(1 <= y <= size_y)
+                    assert(1 <= z <= layer_num)
+                    line_mat[num-1, positer*3+0] = x
+                    line_mat[num-1, positer*3+1] = y
+                    line_mat[num-1, positer*3+2] = z
+                    positer+=1
+                assert(positer <= LINE_TERMINAL_MAX)
                 continue
 
             m = pLINE.match(line)
@@ -184,32 +229,10 @@ class NLCheck:
                 line_mat[num-1, 5] = 1       # layer no. of end edge
                 continue
 
-            m = pLINE3D.match(line)
-            if m is not None:
-                num, sx, sy, sz, ex, ey, ez = m.groups()
-                if not (1 <= int(sz) <= layer_num):
-                    print "ERROR: start layer range: ", str(line)
-                    break
-                if not (1 <= int(ez) <= layer_num):
-                    print "ERROR: end   layer range: ", str(line)
-                    break
-                num = int(num)
-                if num <= 0 or line_num < num:
-                    print "ERROR: LINE# num range: ", str(line)
-                    break
-                line_mat[num-1, 0] = int(sx)
-                line_mat[num-1, 1] = int(sy)
-                line_mat[num-1, 2] = int(sz)
-                line_mat[num-1, 3] = int(ex)
-                line_mat[num-1, 4] = int(ey)
-                line_mat[num-1, 5] = int(ez)
-                continue
-
             m = pVIA3D_name.match(line)
-            viadic = dict()
             if m is not None:
-                v = m.groups()
-                viadic[v] = viaiter
+                v = m.groups()[0]
+                via_dic[v] = via_number # set lookup table of (via_name, via_number)
                 positer = 0
                 for m in pVIA3D_pos.finditer(line):
                     x,y,z = m.groups()[1:]
@@ -217,18 +240,26 @@ class NLCheck:
                     y = int(y)
                     z = int(z)
                     assert(1 <= z <= layer_num)
-                    via_mat[viaiter-1, positer*3+0] = x
-                    via_mat[viaiter-1, positer*3+1] = y
-                    via_mat[viaiter-1, positer*3+2] = z
+                    via_mat[via_number-1, positer*3+0] = x
+                    via_mat[via_number-1, positer*3+1] = y
+                    via_mat[via_number-1, positer*3+2] = z
                     positer+=1
-                viaiter += 1
+                if VERSION==VER_2016:
+                    assert(positer <= LAYER_MAX)
+                via_number += 1
                 continue
             print "WARNING: unknown: ", str(line)
         #print "size=",size
         #print "line_num=",line_num
-        print line_mat
-        print via_mat
-        return (size, line_num, line_mat)
+        if self.debug:
+            print "@read_input_data: line_mat = "
+            print "\tline_mat = "
+            print line_mat
+            print "\tvia_mat = "
+            print via_mat
+            print "\tvia_dic = "
+            print via_dic
+        return (size, line_num, line_mat, via_mat, via_dic)
 
 
     def read_target_file(self, file):
@@ -254,7 +285,7 @@ class NLCheck:
         size = None
         mat = None
         line_cnt = 0
-        layer_num = 1
+        layer_cur_num = 1
         results = []
         pSIZE = re.compile('SIZE +([0-9]+)X([0-9]+)', re.IGNORECASE)
         pLAYER = re.compile('LAYER +([0-9]+)', re.IGNORECASE)
@@ -275,6 +306,7 @@ class NLCheck:
                     if self.debug: print ""
                 if eof:
                     results.append(mat) # 解を追加
+                    print "result data = "
                     print mat
                     mat = None
                     break
@@ -291,7 +323,7 @@ class NLCheck:
                     # ２度め以降のSIZEに対してはWarning
                     print "WARNING: too many SIZE"
                 size = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
-                print "SIZE 3D = ", size
+                if self.debug: print "SIZE 3D = ", size
                 continue
             #else:
             #    if size is None:
@@ -313,11 +345,11 @@ class NLCheck:
                     print "WARNING: unknown: ", str(line)
                     continue
 
-            # 次にLAYER指定があるはず。無い状態ではLAYER=1とみなす
+            # 次にLAYER指定があるはず。
             m = pLAYER.match(line)
             if m is not None:
                 # LAYER行が現れた
-                layer_num = int(m.group(1))
+                layer_cur_num = int(m.group(1))
                 line_cnt = 0
                 continue
 
@@ -342,7 +374,7 @@ class NLCheck:
                     val = int(data[i])
                 except ValueError:
                     print "ERROR: illegal value: ", str(data[i])
-                mat[layer_num-1, line_cnt, i] = val
+                mat[layer_cur_num-1, line_cnt, i] = val
             line_cnt += 1
         return results
 
@@ -394,6 +426,22 @@ class NLCheck:
              (eastNotEq and northEq    and westNotEq and southNotEq) or
              (eastNotEq and northNotEq and westEq    and southNotEq) or
              (eastNotEq and northNotEq and westNotEq and southEq   ) ) :
+            return True
+        else:
+            return False
+
+    def is_alone(self, xmat, x, y, z):
+        " 孤立点か？"
+        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
+        y1 = 1 + y
+        num = xmat[z,y1,x1] # 注目点の数字
+        eastNotEq  = (xmat[z,y1,  x1+1] != num)
+        northNotEq = (xmat[z,y1-1,x1  ] != num)
+        westNotEq  = (xmat[z,y1,  x1-1] != num)
+        southNotEq = (xmat[z,y1+1,x1  ] != num)
+        #print "num=%d xpos=(%d,%d)" % (num, x1,y1)
+        #print eastNotEq,northNotEq,westNotEq,southNotEq
+        if (eastNotEq and northNotEq and westNotEq and southNotEq):
             return True
         else:
             return False
@@ -465,16 +513,24 @@ class NLCheck:
             return False
 
 
-    def clearConnectedLine(self, xmat, clear, x1, y1, z):
+    def clearConnectedLine(self, xmat, clear, x1, y1, z, term_set=set()):
         "線を１本消してみる"
         #print x1,y1
         num = xmat[z,y1,x1]
         clear[z,y1,x1] = 0
         # 線が連続しているなら、消す
-        neighbors = [[y1,x1+1], [y1-1,x1], [y1,x1-1], [y1+1,x1]]
-        for [ny,nx] in neighbors:
+        neighbors = [(y1,x1+1), (y1-1,x1), (y1,x1-1), (y1+1,x1)]
+        # first check terminal
+        all_not_eq = True
+        for ny,nx in neighbors:
             if xmat[z,ny,nx] == num and clear[z,ny,nx] != 0:
-                self.clearConnectedLine(xmat, clear, nx,ny,z) # 再帰
+                all_not_eq = False
+        if all_not_eq == True:
+            term_set.add((x1-1,y1-1,z))
+        else:
+            for ny,nx in neighbors:
+                if xmat[z,ny,nx] == num and clear[z,ny,nx] != 0:
+                    self.clearConnectedLine(xmat, clear, nx,ny,z, term_set) # 再帰
 
 
     def check_filename(self, absinputf, abstargetf):
@@ -520,7 +576,7 @@ class NLCheck:
 
     def check_1(self, input_data, mat):
         "チェック1. 問題の数字の位置と、同じである。"
-        (size, line_num, line_mat) = input_data
+        (size, line_num, line_mat, via_mat, via_dic) = input_data
         judge = True
         if self.check_size(size, mat) == False:
             print "check_1: mismatch matrix size: SIZE=", size, "matrix=", mat.shape
@@ -543,7 +599,7 @@ class NLCheck:
 
     def check_2(self, input_data, mat):
         "チェック2. 問題にはない数字があってはいけない。"
-        (size, line_num, line_mat) = input_data
+        (size, line_num, line_mat, via_mat, via_dic) = input_data
         judge = True
         # 1からline_numまでの数字が出現するはず。または空きマス＝0
         (sx,sy,sz) = size
@@ -559,7 +615,7 @@ class NLCheck:
 
     def check_3(self, input_data, xmat):
         "チェック3. 問題の数字の位置が、線の端点である。"
-        (size, line_num, line_mat) = input_data
+        (size, line_num, line_mat, via_mat, via_dic) = input_data
         judge = True
         for line in range(1, line_num+1):
             (x0,y0,z0,x1,y1,z1) = line_mat[line-1]
@@ -587,7 +643,7 @@ class NLCheck:
 
     def check_5(self, input_data, xmat):
         "チェック5. 線はつながっている。"
-        (size, line_num, line_mat) = input_data
+        (size, line_num, line_mat, via_mat, via_dic) = input_data
         judge = True
         clear = xmat.copy()
         for line in range(1, line_num+1):
@@ -621,6 +677,218 @@ class NLCheck:
                         judges[j] = False # 正解から不正解へ変更
                         print "check_6: same data, %d and %d" % (i,j)
         return judge
+
+    # check via related constraints
+    def check_7(self, input_data, xmat):
+        (size, line_num, line_mat, via_mat, via_dic) = input_data
+
+        if self.check_via_num(line_num, via_dic) == False:
+            print "check_via_num: line_num = %d, via_num = %d" % (line_num, len(via_dic))
+            return False
+
+        if self.check_via_in_size(size, via_mat, via_dic) == False:
+            print "check_via_in_size: mismatch SIZE and via: SIZE=", size, "via_matrix="
+            print via_mat
+            return False
+
+        if self.check_via_same_xy(via_mat, via_dic) == False:
+            print "check_via_same_xy: via_mat ="
+            print via_mat
+            return False
+
+        if self.check_num_of_via_and_interlayerlines(line_num, line_mat, via_mat, via_dic) == False:
+            print "check_num_of_via_and_interlayerlines: via_mat ="
+            print via_mat
+            return False
+
+        if self.check_ans_via_become_num(via_mat, via_dic, xmat) == False:
+            print "check_ans_via_become_num: via_mat ="
+            print via_mat
+            return False
+
+        if self.check_ans_via_is_terminal_or_alone(via_mat, via_dic, xmat) == False:
+            print "check_ans_via_is_terminal_or_alone: via_mat ="
+            print via_mat
+            return False
+
+        if self.check_ans_via_is_connected_to_line(line_num, line_mat, via_mat, via_dic, xmat) == False:
+            print "check_ans_via_is_connected_to_line: via_mat ="
+            print via_mat
+            return False
+
+        return True
+
+    def check_via_num(self, line_num, via_dic):
+        " C2016_2. 問題フォーマットにて、LINE数 >= VIA数"
+        return (line_num >= len(via_dic))
+
+    def check_via_in_size(self, size, via_mat, via_dic):
+        " C2016_3. 問題フォーマットにて、各VIAの位置(x,y,z)がSIZE内である"
+        size_x, size_y, size_z = size
+        for i in range(len(via_dic)):
+            v = via_mat[i]
+            viaiter = 0
+            while viaiter < LAYER_MAX:
+                x = v[viaiter*3+0]
+                y = v[viaiter*3+1]
+                z = v[viaiter*3+2]
+                if (x == 0) and (y == 0) and (z == 0): break
+                if not ( (0 <= x < size_x) and (0 <= y < size_y) and (1 <= z <= size_z) ): return False
+                viaiter+=1
+        return True
+
+    def check_via_same_xy(self, via_mat, via_dic):
+        " C2016_4. 問題フォーマットにて、各VIAの各層での位置(x,y)がすべて一致している"
+        for i in range(len(via_dic)):
+            v = via_mat[i]
+            viaiter = 0
+            x0 = 0
+            y0 = 0
+            while viaiter < LAYER_MAX:
+                x = v[viaiter*3+0]
+                y = v[viaiter*3+1]
+                z = v[viaiter*3+2]
+                if x == 0 and y == 0 and z == 0: break
+                if viaiter == 0:
+                    x0 = x
+                    y0 = y
+                if (x != x0) or (y != y0): return False
+                viaiter+=1
+        return True
+
+    def check_num_of_via_and_interlayerlines(self, line_num, line_mat, via_mat, via_dic):
+        " C2016_5. 問題フォーマットにて、無駄なVIAが存在しない = 層をまたぐLINE数とVIA数が同じ"
+        num_interlayer = 0
+        for line in range(1, line_num+1):
+            (x0,y0,z0,x1,y1,z1) = line_mat[line-1]
+            if z0 != z1:
+                num_interlayer += 1
+        num_via = len(via_dic)
+        return (num_interlayer == num_via)
+
+    def check_ans_via_become_num(self, via_mat, via_dic, xmat):
+        " C2016_6. 回答フォーマット中で、問題のViaの位置に数字がある (数字しかあえりえないので、!= 0 を確認)"
+        for i in range(len(via_dic)):
+            v = via_mat[i]
+            viaiter = 0
+            num0 = 0
+            while viaiter < LAYER_MAX:
+                x = v[viaiter*3+0]
+                y = v[viaiter*3+1]
+                z = v[viaiter*3+2]
+                if x == 0 and y == 0 and z == 0: break
+                num = xmat[z, y+1, x+1]
+                if num == 0: return False
+                if viaiter == 0:
+                    # remember first one. rests should be same
+                    num0 = num
+                else:
+                    if num != num0: return False
+                viaiter+=1
+        return True
+
+    def separate_via_terminal_and_inter(self, via_mat, via_dic):
+        term_via_set = set()
+        inter_via_set = set()
+        for i in range(len(via_dic)):
+            v = via_mat[i]
+            viaiter = 0
+            min_layer = 9999
+            max_layer = 0
+            term_via_min = None
+            term_via_max = None
+            while viaiter < LAYER_MAX:
+                x = v[viaiter*3+0]
+                y = v[viaiter*3+1]
+                z = v[viaiter*3+2]
+                if x == 0 and y == 0 and z == 0: break
+                if z < min_layer:
+                    if term_via_min != None:
+                        inter_via_set.add(term_via_min)
+                    min_layer = z
+                    term_via_min = (x,y,z)
+                elif z > max_layer:
+                    if term_via_max != None:
+                        inter_via_set.add(term_via_max)
+                    max_layer = z
+                    term_via_max = (x,y,z)
+                else:
+                    inter_via_set.add((x,y,z))
+                viaiter += 1
+            assert(term_via_min != None)
+            assert(term_via_max != None)
+            term_via_set.add(term_via_min)
+            term_via_set.add(term_via_max)
+        if self.debug:
+            print "term_via_set is : ", term_via_set
+            print "inter_via_set is: ", inter_via_set
+        return (term_via_set, inter_via_set)
+
+    def check_ans_via_is_terminal_or_alone(self, via_mat, via_dic, xmat):
+        " C2016_7. 回答フォーマット中で、Viaの端層の数字は、端点である"
+        " C2016_8. 回答フォーマット中で、via途中層の数字は、孤立している"
+        term_via_set, inter_via_set = self.separate_via_terminal_and_inter(via_mat, via_dic)
+        for v in term_via_set:
+            x,y,z = v
+            if self.is_terminal(xmat, x,y,z) == False:
+                if self.debug: print "(%d,%d,%d) is not terminal" % (x,y,z)
+                return False
+        for v in inter_via_set:
+            x,y,z = v
+            if self.is_alone(xmat,x,y,z) == False:
+                if self.debug: print "(%d,%d,%d) is not alone" % (x,y,z)
+                return False
+        return True
+
+    def check_ans_via_is_connected_to_line(self, line_num, line_mat, via_mat, via_dic, xmat):
+        " C2016_9. 回答フォーマット中で、アルファベット同士の接続はナシ"
+        term_via_set, _ = self.separate_via_terminal_and_inter(via_mat, via_dic)
+        clear = xmat.copy()
+        for x,y,z in term_via_set:
+            # 端層のVIA位置から線をたどって、消していく
+            term_set = set()
+            self.clearConnectedLine(xmat, clear, x+1, y+1, z, term_set)
+            if len(term_set) == 0:
+                print "Error: VIA on (%d,%d,%d) is not connected to anything..." % (x,y,z)
+                return False
+            elif len(term_set) >= LINE_TERMINAL_MAX:
+                print "Error: VIA on (%d,%d,%d) is connected more than %d points..." % (x,y,z, LINE_TERMINAL_MAX-1)
+                return False
+            else:
+                line_set = self.get_line_set(line_num, line_mat)
+                via_set = self.get_via_set(via_mat, via_dic)
+                for tx,ty,tz in term_set:
+                    if self.debug: print "via", (x,y,z), "is connected to", (tx, ty, tz)
+                    if (tx,ty,tz) not in line_set:
+                        if self.debug: print "via", (x,y,z), "is not connected to any line"
+                        return False
+                    elif (tx,ty,tz) in via_set:
+                        if self.debug: print "via", (x,y,z), "is connected to other via", (tx, ty, tz)
+                        return False
+                    else:
+                        pass
+        return True
+
+    def get_line_set(self, line_num, line_mat):
+        line_set = set()
+        for line in range(line_num):
+            (x0,y0,z0,x1,y1,z1) = line_mat[line]
+            line_set.add( (x0,y0,z0) )
+            line_set.add( (x1,y1,z1) )
+        return line_set
+    def get_via_set(self, via_mat, via_dic):
+        via_set = set()
+        for i in range(len(via_dic)):
+            v = via_mat[i]
+            viaiter = 0
+            while viaiter < LAYER_MAX:
+                x = v[viaiter*3+0]
+                y = v[viaiter*3+1]
+                z = v[viaiter*3+2]
+                if (x == 0) and (y == 0) and (z == 0): break
+                via_set.add( (x,y,z) )
+                viaiter+=1
+        return via_set
 
     def line_length(self, nlines, mat):
         "線の長さを計算する"
@@ -669,6 +937,7 @@ class NLCheck:
             r3 = False
             r4 = False
             r5 = False
+            r7 = False
             mat = target_data[i] # 解答の行列
             if mat.sum() == 0:
                 print "ERROR: Zero Matrix"
@@ -697,8 +966,13 @@ class NLCheck:
                 except IndexError, e:
                     print "IndexError:", e
                 if self.verbose: print "check_5", r5
+                try:
+                    r7 = self.check_7(input_data, xmat)
+                except IndexError, e:
+                    print "IndexError:", e
+                if self.verbose: print "check_7", r7
             #
-            res = r1 and r2 and r3 and r4 and r5
+            res = r1 and r2 and r3 and r4 and r5 and r7
             print "res=",res
             if res:
                 q = self.quality(input_data, mat, xmat)
@@ -797,17 +1071,19 @@ class NLCheck:
             elif o in ("-v","--verbose"):
                 self.verbose = True
             elif o in ("-i","--input"):
-                input_data = self.read_input_file(a)
                 input_file = a
-                if self.verbose: print "input=", input_data
             elif o in ("-t","--target"):
-                target_data = self.read_target_file(a)
                 target_file = a
-                if self.verbose: print "target=\n", target_data
             elif o in ("-c", "--clean"):
                 clean = a
             elif o in ("-g", "--gif"):
                 gif = a
+        if input_file :
+            input_data = self.read_input_file(input_file)
+            if self.verbose: print "input=", input_data
+        if target_file:
+            target_data = self.read_target_file(target_file)
+            if self.verbose: print "target=\n", target_data
         if input_data is not None and target_data is not None:
             if clean is not None:
                 target_data = self.clean_a(input_data, target_data)
