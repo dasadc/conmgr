@@ -139,13 +139,14 @@ class NLCheck:
         first = True
 
         pSIZE3D = re.compile('SIZE +([0-9]+)X([0-9]+)X([0-9]+)', re.IGNORECASE)
-        pLINE3D = re.compile('LINE#(\d+) +\((\d+),(\d+),(\d+)\)[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
+
+        #pLINE3D = re.compile('LINE#(\d+) +\((\d+),(\d+),(\d+)\)[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
         pLINE3D_name = re.compile('LINE#(\d+) +\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
         pLINE3D_pos  = re.compile('[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
 
         via_number = 1
         pVIA3D_name = re.compile('VIA#([a-z]+) +(\((\d+),(\d+),(\d+)\))+', re.IGNORECASE) # use match
-        pVIA3D_pos  = re.compile('(\((\d+),(\d+),(\d+)\))', re.IGNORECASE) # use finditer
+        pVIA3D_pos  = re.compile('[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE) # use finditer
 
         via_dic = dict()
 
@@ -235,7 +236,7 @@ class NLCheck:
                 via_dic[v] = via_number # set lookup table of (via_name, via_number)
                 positer = 0
                 for m in pVIA3D_pos.finditer(line):
-                    x,y,z = m.groups()[1:]
+                    x,y,z = m.groups()
                     x = int(x)
                     y = int(y)
                     z = int(z)
