@@ -11,7 +11,7 @@
 #
 #
 #
-# Copyright (c) 2014,2015 dasadc, Fujitsu
+# Copyright (c) 2014,2015,2016 dasadc, Fujitsu
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -48,14 +48,23 @@ use FindBin;
 use lib "$FindBin::Bin";
 use File::Basename;
 
+require 'get_ban_size.pl';
 require 'print_ban.pl';
 require 'print_ban_adc.pl';
 
 #binmode(STDOUT, ":utf8"); # UTF-8の文字列をprintするため
 
-
-
-
+sub find_via {
+    my ($vias, $x, $y, $layer) = @_;
+    for my $via (sort keys %$vias) {
+	if ( $vias->{$via}->{x} == $x &&
+	     $vias->{$via}->{y} == $y &&
+	     $vias->{$via}->{z} == $layer ) {
+	    return $via;
+	}
+    }
+    return "";
+}
 
 # リンク途中の余計な数字を消して、リンクの端点のみを残す
 sub clear_number {
@@ -118,14 +127,10 @@ sub clear_number {
     #print_ban( $ban );
 }
 
-# ADC形式の出題ファイルを書き出す
-sub print_Q_adc {
-    my ( $ban, $fp ) = @_;
-
-    my ($xmax, $ymax) = get_ban_size( $ban );
-    print $fp sprintf("SIZE %dX%d\r\n", $xmax+1, $ymax+1);
-
-    # 番号を数え上げる
+# 番号を数え上げる
+sub enumerate_numbers {
+    my ($ban, $xmax, $ymax) = @_;
+    #print "3: ban=" . $ban . "\n";
     my %numbers = ();
     my @pos0 = ();
     my @pos1 = ();
@@ -154,6 +159,23 @@ sub print_Q_adc {
 	    }
 	}
     }
+    return { numbers => \%numbers, pos0 => \@pos0, pos1 => \@pos1, maxNum => $maxNum};
+}
+
+# ADC形式の出題ファイルを書き出す
+sub print_Q_adc {
+    my ( $ban, $fp ) = @_;
+
+    #print "2: ban=" . $ban . "\n";
+    my ($xmax, $ymax) = get_ban_size( $ban );
+    print $fp sprintf("SIZE %dX%d\r\n", $xmax+1, $ymax+1);
+
+    # 番号を数え上げる
+    my $en = enumerate_numbers($ban, $xmax, $ymax);
+    my %numbers = %{$en->{numbers}};
+    my @pos0    = @{$en->{pos0}};
+    my @pos1    = @{$en->{pos1}};
+    my $maxNum  = $en->{maxNum};
 
     # 出力する
     print $fp sprintf("LINE_NUM %d\r\n", $maxNum);
@@ -168,7 +190,370 @@ sub print_Q_adc {
 	    print $fp sprintf("LINE#%d %s-%s\r\n", $i, $pos0[$i], $pos1[$i]);
 	}
     }
+}
 
+# 2016年版 問題データ出力
+sub print_Q_adc2016 {
+    my ( $data, $fp ) = @_;
+    my @tmp = @{$data};
+    my $nlayers = $#tmp;
+    my ($xmax0, $ymax0);
+    my $maxNum = 0;
+    my @enum_num = ();
+    for ( my $i = 1; $i <= $nlayers; $i ++ ) {
+	my $ban  = $data->[$i]->{ban};
+	my ($xmax, $ymax) = get_ban_size( $ban );
+	clear_number( $ban ); # 2回以上実行しても問題ない
+	if ( $i == 1 ) {
+	    $xmax0 = $xmax;
+	    $ymax0 = $ymax;
+	} else {
+	    # 盤面サイズが一致していることを確認
+	    if ($xmax0 != $xmax || $ymax0 != $ymax) {
+		printf("ERROR: ban size must be same: %dX%d != %dX%d\n",
+		       $xmax0+1, $ymax0+1, $xmax+1, $ymax+1);
+	    }
+	}
+	# 番号を数え上げる
+	my $en = enumerate_numbers($ban, $xmax, $ymax);
+	if ($maxNum < $en->{maxNum}) { $maxNum = $en->{maxNum}; }
+	$enum_num[$i] = $en;
+    }
+    my @numbers0 = ();
+    my @lines = ();
+    my @endpoints = ();
+    my %viaList = ();
+    print $fp sprintf("SIZE %dX%d\r\n", $xmax0+1, $ymax0+1);
+    print $fp sprintf("LINE_NUM %d\r\n", $maxNum);
+    for ( my $layer = 1; $layer <= $nlayers; $layer ++ ) {
+	my $en = $enum_num[$layer];
+	my %numbers = %{$en->{numbers}};
+	my @pos0    = @{$en->{pos0}};
+	my @pos1    = @{$en->{pos1}};
+	for ( my $line = 1; $line <= $maxNum; $line ++ ) {
+	    if (defined $numbers{$line}) {
+		if (defined $numbers0[$line]) {
+		    $numbers0[$line] += $numbers{$line};
+		} else {
+		    $numbers0[$line] = $numbers{$line};
+		}
+	    }
+	    if (defined $pos0[$line]) {
+		if (!defined $pos1[$line]) {
+		    printf("ERROR: cannot find second number of LINE %d\n", $line);
+		    continue;
+		}
+		my ($x0, $y0, $x1, $y1);
+		if ($pos0[$line] =~ /\((\d+),(\d+)\)/ ) {
+		    ($x0, $y0) = ($1, $2);
+		} else {
+		    printf("BUG: format error: LINE %d pos0=%s\n", $line, $pos0[$line]);
+		    continue;
+		}
+		if ($pos1[$line] =~ /\((\d+),(\d+)\)/ ) {
+		    ($x1, $y1) = ($1, $2);
+		} else {
+		    printf("BUG: format error: LINE %d pos1=%s\n", $line, $pos1[$line]);
+		    continue;
+		}
+		my $via0 = find_via($data->[$layer]->{via}, $x0, $y0, $layer);
+		my $via1 = find_via($data->[$layer]->{via}, $x1, $y1, $layer);
+		if ($via0 eq "") {
+		    if (!defined $lines[$line]) { $lines[$line] = {}; }
+		    if (defined($lines[$line]->{pos0})) {
+			if(defined($lines[$line]->{pos1})) {
+			    # 複数のlayerで、個別に、同じ番号の線が引かれているとき
+			    printf("ERROR: too many number %d: %s and (%d,%d,%d)\n", $line, $lines[$line]->{pos0}, $x0, $y0, $layer);
+			} else {
+			    # pos0がすでに決まっていたので、pos1に登録
+			    $lines[$line]->{pos1} = sprintf("(%d,%d,%d)", $x0, $y0, $layer);
+			}
+		    } else {
+			$lines[$line]->{pos0} = sprintf("(%d,%d,%d)", $x0, $y0, $layer);
+		    }
+		} else {
+		    #printf("VIA0 (%d,%d,%d) for LINE#%d\n", $x0, $y0, $layer, $line);
+		    if (!defined $viaList{$via0}) { $viaList{$via0} = ""; }
+		    $viaList{$via0} .= sprintf(" (%d,%d,%d)", $x0, $y0, $layer);
+		}
+		if ($via1 eq "") {
+		    if (!defined $lines[$line]) { $lines[$line] = {}; }
+		    if (defined($lines[$line]->{pos1})) {
+			if (defined($lines[$line]->{pos0})) {
+			    # 複数のlayerで、個別に、同じ番号の線が引かれているとき
+			    printf("ERROR: too many number %d: %s and (%d,%d,%d)\n", $line, $lines[$line]->{pos1}, $x1, $y1, $layer);
+			} else {
+			    # pos1がすでに決まっていたので、pos0に登録
+			    $lines[$line]->{pos0} = sprintf("(%d,%d,%d)", $x1, $y1, $layer);
+			}
+		    } else {
+			$lines[$line]->{pos1} = sprintf("(%d,%d,%d)", $x1, $y1, $layer);
+		    }
+		} else {
+		    #printf("VIA1 (%d,%d,%d) for LINE#%d\n", $x1, $y1, $layer, $line);
+		    if (!defined $viaList{$via1}) { $viaList{$via1} = (); }
+		    #push $viaList{$via1}, sprintf("%d,%d,%d", $x1, $y1, $layer);
+		    $viaList{$via1} .= sprintf(" (%d,%d,%d)", $x1, $y1, $layer);
+		}
+		#printf("LINE %d (%d,%d,%d)-(%d,%d,%d) \n", $line, $x0, $y0, $layer, $x1, $y1, $layer);
+	    }
+	}
+    }
+    for ( my $line = 1; $line <= $maxNum; $line ++ ) {
+	if (defined $numbers0[$line]) {
+	    #printf("numbers0[%d] = %d\n", $line, $numbers0[$line]);
+	    print $fp sprintf("LINE#%d %s %s\n", $line, $lines[$line]->{pos0}, $lines[$line]->{pos1});
+	} else {
+	    print $fp sprintf("ERROR: cannot find number %d\n", $line);
+	    printf("ERROR: cannot find number %d\n", $line);
+	}
+    }
+    foreach my $viaName (sort keys %viaList) {
+	print $fp sprintf("VIA#%s%s\n", $viaName, $viaList{$viaName});
+    }
+}
+
+# ワークシート、1枚を読み込む
+sub read_sheet1 {
+    my ($worksheet) = @_;
+    my $ban = ();
+    my ( $row_min, $row_max ) = $worksheet->row_range();
+    my ( $col_min, $col_max ) = $worksheet->col_range();
+    #print "row_min=$row_min, col_min=$col_min\n";
+    #print "row_max=$row_max, col_max=$col_max\n";
+    
+    for my $row ( $row_min .. $row_max ) {
+	for my $col ( $col_min .. $col_max ) {
+	    
+	    my $cell = $worksheet->get_cell( $row, $col );
+	    next unless $cell;
+	    my $cell_in = $cell->value();
+	    
+	    #print "[$row][$col] : $cell_in", "\n";
+	    $ban->[$col][$row] = $cell_in;
+	}
+    }
+    return $ban;
+}
+
+sub dump_vias {
+    my ($vias) = @_;
+    for my $via (sort keys %$vias) {
+	printf("%s (%d,%d,%d)\n",
+	       $via,
+	       $vias->{$via}->{x},
+	       $vias->{$via}->{y},
+	       $vias->{$via}->{z});
+    }
+}
+
+# viaの(X,Y)座標が一致するかチェックする。
+# 中間のLAYERでviaが置かれているかチェックする。
+# viaだけがあって、数字マスと接続していない場合は…？  別のチェック条件で検出されるはず
+sub check_via {
+    my ($data) = @_;
+    my @tmp = @{$data};
+    my $nlayers = $#tmp;
+    my %found_name = ();
+    my %found_xyz = ();
+    my $err = 0;
+    for ( my $i = 1; $i <= $nlayers; $i ++ ) {
+	my $vias = $data->[$i]->{via};
+	for my $via (sort keys %$vias) {
+	    my $x = $vias->{$via}->{x};
+	    my $y = $vias->{$via}->{y};
+	    my $z = $vias->{$via}->{z};
+	    my $xy  = sprintf("x=%d,y=%d", $x, $y);
+	    my $xyz = sprintf("x=%d,y=%d,z=%d", $x, $y, $z);
+	    # (X,Y)座標が一致すること
+	    if ( defined($found_name{$via}) ) {
+		if ( $found_name{$via} eq $xy ) {
+		    # (X,Y)が一致したのでOK
+		} else {
+		    printf("ERROR: VIA#%s X,Y mismatch: %s and %s",
+			   $via, $found_name{$via}, $xy);
+		    $err ++;
+		}
+	    } else {
+		# 初登場
+		$found_name{$via} = $xy;
+	    }
+	    # 中間のLAYERでviaが置かれていること
+	    if ( defined($found_xyz{$xyz}) ) {
+		if ( $found_xyz{$xyz} == $i-1 ) { # layerが連続している
+		    # ok
+		} else {
+		    printf("ERROR: VIA#%s(%d,%d,%d) is missing\n",
+			   $via, $x, $y, $i-1);
+		    $err ++;
+		}
+	    } else {
+		# 初登場
+		$found_xyz{$xyz} = $i;
+	    }
+	}
+    }
+    return $err;
+}
+
+sub get_ban_data {
+    my ($ban, $nrows, $ncols, $layer) = @_;
+    my $xmax = 1 + $ncols - 1;  # 盤のデータは第1列から始まる(列0からスタート)
+    my $ymax = 3 + $nrows - 1;  # 盤のデータは第3行から始まる(行0からスタート)
+    #print "xmax=$xmax, ymax=$ymax\n";
+    #print_ban_OLD( $ban );
+    my $ban2 = [];
+    my $vias = {};
+    # 第2行は列の番号
+    # 第3行からデータ
+    for ( my $y = 3; $y <= $ymax; $y ++ ) {
+	# 第0列は行の番号
+	# 第1列からデータ
+	for ( my $x = 1; $x <= $xmax; $x ++ ) {
+	    my $val = $ban->[$x][$y];
+	    if ( defined $val ) {
+		$val =~ s/ //g; # 余分なスペースを削除
+		my @tmp = split(/=/, $val);
+		if ($#tmp == 1) {
+		    $vias->{$tmp[0]} = {x => ($x-1), y => ($y-3), z => $layer};
+		    $val = $tmp[1];
+		}
+		$ban2->[$x-1][$y-3] = $val;
+	    } else {
+		$ban2->[$x-1][$y-3] = '-';
+	    }
+	}
+    }
+    return ($ban2, $vias);
+}
+
+sub is_completed {
+    my ($multiData, $worksheetbase, $nlayers) = @_;
+    my $complete = 0;
+    for ( my $i = 1; $i <= $nlayers; $i ++ ) {
+	if (defined($multiData->{$worksheetbase}->[$i])) {
+	    $complete ++;
+	}
+    }
+    #print "is_completed: $worksheetbase, nlayers=$nlayers compete=$complete\n";
+    return ($complete == $nlayers);
+}
+
+sub write_file {
+    my ($multiData, $basefile, $worksheetbase, $dataA) = @_;
+    my @tmp = @{$multiData->{$worksheetbase}};
+    my $nlayers = $#tmp;
+    #print "nlayers=$nlayers\n";
+    #print "1:" . $multiData->{$worksheetbase}->[1] . "\n";
+    my $ban  = $multiData->{$worksheetbase}->[1]->{ban};
+    my $via  = $multiData->{$worksheetbase}->[1]->{via};
+    my $data = $multiData->{$worksheetbase};
+
+    if ( $dataA != 0 ) {
+	# 解答ファイルを作る(ソルバで解けなかったとき用)
+	my $sfilename = sprintf("%s_%s_adc_sol.txt", $basefile, $worksheetbase);
+	open( my $fp0, ">$sfilename") || die "ERROR: open $sfilename";
+	if ( $nlayers == 1 ) {
+	    print_ban_adc( $ban, 1, $fp0 );
+	} else {
+	    print_ban_adc2016( $data, $fp0 );
+	}
+	close $fp0
+    }
+    # 線を消して、端点のみを残す
+    clear_number( $ban );
+
+    my $ofilename = sprintf("%s_%s.txt", $basefile, $worksheetbase);
+    print $ofilename . "\n";
+    open( my $fp, ">$ofilename") || die "ERROR: open $ofilename";
+    if ( $nlayers == 1 ) {
+	print_ban( $ban, $fp );
+    } else {
+	print_ban2016( $data, $fp );
+    }
+    close $fp;
+
+    $ofilename = sprintf("%s_%s.csv", $basefile, $worksheetbase);
+    print $ofilename . "\n";
+    open( my $fp1, ">$ofilename") || die "ERROR: open $ofilename";
+    if ( $nlayers == 1 ) {
+	#print_ban_csv( $ban, $fp1 );
+	#print "1: ban=" . $ban . "\n";
+	print_ban( $ban, $fp1, 1 );
+    } else {
+	print_ban2016( $data, $fp1, 1);
+    }
+    close $fp1;
+
+    my $ofilename_adc = sprintf("%s_%s_adc.txt", $basefile, $worksheetbase);
+    print $ofilename_adc . "\n";
+    open( my $fp2, ">$ofilename_adc") || die "ERROR: open $ofilename_adc";
+    if ( $nlayers == 1 ) {
+	print_Q_adc( $ban, $fp2 );
+    } else {
+	print_Q_adc2016( $data, $fp2 );
+    }
+    close $fp2;
+}
+
+sub proc1_sheet {
+    my ($basefile, $worksheet, $multiData) = @_;
+    my $worksheetname = $worksheet->get_name();
+    my $worksheetbase = $worksheetname;
+    my $dataA = 0; # Aファイル（回答データ）を生成するか？ セルC1にAと書く
+    my $ban = read_sheet1($worksheet);
+    my $nrows   = $ban->[0][0]; # 行数  "0000","行"  セルA1
+    my $ncols   = $ban->[0][1]; # 列数  "0000","列"  セルA2
+    my $layer   = $ban->[3][0]; # 層の番号           セルD1
+    my $nlayers = $ban->[5][0]; # 層数               セルF1
+    if ( !(defined($nrows) && defined($ncols)) ) {
+	next;
+    }
+    if (defined($layer) && defined($nlayers)) {
+	my @tmp = split(/\./, $worksheetname); # '.'で分割
+	if ($#tmp != 1) {
+	    printf("ERROR: check worksheet name format: worksheet name=%s\n",
+		   $worksheetname);
+	    return -1;
+	}
+	$worksheetbase = $tmp[0];
+	if ($tmp[1] != $layer) {
+	    printf("ERROR: check layer numer: worksheet name=%s, layer=%d\n",
+		   $worksheetname, $layer);
+	    return -1;
+	}
+	if ( $layer <= 0 || $nlayers < $layer ) {
+	    printf("ERROR: layer %d is out of range\n", $layer);
+	    return -1;
+	}
+    } elsif (defined($layer) && !defined($nlayers)) {
+	printf("ERROR: missing number of layer. check cell F1\n");
+	return -1;
+    } elsif (!defined($layer) && defined($nlayers)) {
+	printf("ERROR: missing layer. check cell D1\n");
+	return -1;
+    } else {
+	$layer = 1;
+	$nlayers = 1;
+    }
+    if ( $nrows <= 0 || $ncols <= 0 ) {
+	print "SKIP: sheet $worksheetname\n";
+	next;
+    }
+    #print "nrows=$nrows, ncols=$ncols\n";
+    if (defined($ban->[2][0]) && $ban->[2][0] eq 'A') { # セルC1
+	$dataA = 1;
+    }
+    my ($ban2, $vias) = get_ban_data( $ban, $nrows, $ncols, $layer);
+    #print_ban( $ban2, \*STDOUT );
+    #dump_vias($vias);
+    $multiData->{$worksheetbase}->[$layer] = { ban => $ban2, via => $vias };
+    my $complete = is_completed($multiData, $worksheetbase, $nlayers);
+    
+    if ( $complete ) {
+	check_via($multiData->{$worksheetbase});
+	write_file($multiData, $basefile, $worksheetbase, $dataA);
+    }
 }
 
 sub proc1 {
@@ -189,97 +574,9 @@ sub proc1 {
 	die "ERROR: cannot parse $input_file";
     }
 
+    my $multiData = {};
     for my $worksheet ( $workbook->worksheets() ) {
-	
-	my $ban = ();
-	my ( $row_min, $row_max ) = $worksheet->row_range();
-	my ( $col_min, $col_max ) = $worksheet->col_range();
-	#print "row_min=$row_min, col_min=$col_min\n";
-	#print "row_max=$row_max, col_max=$col_max\n";
-	my $dataA = 0; # Aファイル（回答データ）を生成する
-	
-	for my $row ( $row_min .. $row_max ) {
-	    for my $col ( $col_min .. $col_max ) {
-		
-		my $cell = $worksheet->get_cell( $row, $col );
-		next unless $cell;
-		my $cell_in = $cell->value();
-		
-		#print "[$row][$col] : $cell_in", "\n";
-		$ban->[$col][$row] = $cell_in;
-	    }
-	}
-
-	# ワークシート、1枚を読み込み終わったところ。
-	if ( !(defined($ban->[0][0]) && defined($ban->[0][1])) ) {
-	    next;
-	}
-	my $nrows = $ban->[0][0]; # 行数  "0000","行"
-	my $ncols = $ban->[0][1]; # 列数  "0000","列"
-	if ( $nrows <= 0 || $ncols <= 0 ) {
-	    #print "SKIP: sheet " . $worksheet->get_name() . "\n";
-	    next;
-	}
-	#print "nrows=$nrows, ncols=$ncols\n";
-	if (defined($ban->[2][0]) && $ban->[2][0] eq 'A') { # セルC1
-	    $dataA = 1;
-	}
-
-	my $xmax = 1 + $ncols - 1;
-	my $ymax = 3 + $nrows - 1;
-	#print "xmax=$xmax, ymax=$ymax\n";
-
-
-	#print_ban_OLD( $ban );
-
-	my $ban2;
-
-	# 第2行は列の番号
-	# 第3行からデータ
-	for ( my $y = 3; $y <= $ymax; $y ++ ) {
-	    # 第0列は行の番号
-	    # 第1列からデータ
-	    for ( my $x = 1; $x <= $xmax; $x ++ ) {
-		if ( defined $ban->[$x][$y] ) {
-		    $ban2->[$x-1][$y-3] = $ban->[$x][$y];
-		} else {
-		    $ban2->[$x-1][$y-3] = "-";
-		}
-	    }
-	}
-	#print_ban( $ban2, \*STDOUT );
-
-	if ( $dataA != 0 ) {
-	    # 解答ファイルを作る(ソルバで解けなかったとき用)
-	    my $sheetname = $worksheet->get_name();
-	    my $sfilename = sprintf("%s_%s_adc_sol.txt", $basefile, $sheetname);
-	    open( my $fp0, ">$sfilename") || die "ERROR: open $sfilename";
-	    print_ban_adc( $ban2, 1, $fp0 );
-	    close $fp0
-
-	} else {
-	    # 線を消して、端点のみを残す
-	    clear_number( $ban2 );
-
-	    my $sheetname = $worksheet->get_name();
-	    my $ofilename = sprintf("%s_%s.txt", $basefile, $sheetname);
-	    print $ofilename . "\n";
-	    open( my $fp, ">$ofilename") || die "ERROR: open $ofilename";
-	    print_ban( $ban2, $fp );
-	    close $fp;
-
-	    $ofilename = sprintf("%s_%s.csv", $basefile, $sheetname);
-	    print $ofilename . "\n";
-	    open( my $fp1, ">$ofilename") || die "ERROR: open $ofilename";
-	    print_ban_csv( $ban2, $fp1 );
-	    close $fp1;
-
-	    my $ofilename_adc = sprintf("%s_%s_adc.txt", $basefile, $sheetname);
-	    print $ofilename_adc . "\n";
-	    open( my $fp2, ">$ofilename_adc") || die "ERROR: open $ofilename_adc";
-	    print_Q_adc( $ban2, $fp2 );
-	    close $fp2;
-        }
+	proc1_sheet( $basefile, $worksheet, $multiData );
     }
 }
 
@@ -287,7 +584,6 @@ sub proc1 {
 
 for ( my $i = 0; $i <= $#ARGV; $i ++ ) {
     my $input_file = $ARGV[$i];
-    print "input = $input_file\n";
+    print "input_file = $input_file\n";
     proc1( $input_file );
 }
-

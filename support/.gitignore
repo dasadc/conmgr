@@ -1,10 +1,6 @@
 /gdmodule-0.58
-/sample_Q1.csv
-/sample_Q1.txt
-/sample_Q1_adc.txt
-/sample_Q2.csv
-/sample_Q2.txt
-/sample_Q2_adc.txt
-/sample_Q3.csv
-/sample_Q3.txt
-/sample_Q3_adc.txt
+/sample_Q*.csv
+/sample_Q*.txt
+/sample_Q*_adc.txt
+/sample_Q*_adc_sol.txt
+/~$sample.xlsx

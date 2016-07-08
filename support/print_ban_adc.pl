@@ -1,21 +1,3 @@
-sub get_ban_size {
-    my ($ban) = @_;
-
-    # $banの、縦、横サイズを求める…うーん。
-    my @tmp = @{$ban};
-    my $xmax = $#tmp;
-    my @tmp2 = @{$ban->[0]};
-    my $ymax = $#tmp2; # 0列目だけ見ていたら、正しくない
-    for ( my $x = 0; $x <= $xmax; $x ++ ) {
-	if ( !defined $ban->[$x] ) { next; }
-	#print "x=$x\n";
-	my @tmp3 = @{$ban->[$x]};
-	if ( $ymax < $#tmp3 ) { $ymax = $#tmp3; }
-    }
-
-    return ($xmax, $ymax);
-}
-
 sub print_ban_adc {
     my ($ban, $num, $fp) = @_;
 
@@ -38,6 +20,46 @@ sub print_ban_adc {
 	    }
 	}
 	print $fp "\r\n";
+    }
+}
+
+sub print_ban_adc2016 {
+    my ($data, $fp) = @_;
+
+    my @tmp = @{$data};
+    my $nlayers = $#tmp;
+    my ($xmax0, $ymax0);
+    for ( my $i = 1; $i <= $nlayers; $i ++ ) {
+	my $ban = $data->[$i]->{ban};
+	my $via = $data->[$i]->{via};
+	
+	my ($xmax, $ymax) = get_ban_size( $ban );
+	if ( $i == 1 ) {
+	    print $fp sprintf("SIZE %dX%dX%d\r\n", $xmax+1, $ymax+1, $nlayers);
+	    $xmax0 = $xmax;
+	    $ymax0 = $ymax;
+	} else {
+	    if ($xmax0 != $xmax || $ymax0 != $ymax) {
+		printf("ERROR: ban size must be same: %dX%d != %dX%d\n",
+		       $xmax0+1, $ymax0+1, $xmax+1, $ymax+1);
+	    }
+	}
+	print $fp sprintf("LAYER %d\r\n", $i);
+	# 盤面データを出力する
+	for ( my $y = 0; $y <= $ymax; $y ++ ) {
+	    for ( my $x = 0; $x <= $xmax; $x ++ ) {
+		if ( !defined $ban->[$x][$y] ||
+		     $ban->[$x][$y] eq " " ||
+		     $ban->[$x][$y] eq "-" ) {
+		    $ban->[$x][$y] = 0;
+		}
+		printf $fp sprintf("%02d", $ban->[$x][$y]);
+		if ( $x < $xmax ) {
+		    print $fp ",";
+		}
+	    }
+	    print $fp "\r\n";
+	}
     }
 }
 
