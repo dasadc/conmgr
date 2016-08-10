@@ -794,28 +794,20 @@ class NLCheck:
         for i in range(len(via_dic)):
             v = via_mat[i]
             viaiter = 0
-            min_layer = 9999
-            max_layer = 0
-            term_via_min = None
-            term_via_max = None
+            l = list()
             while viaiter < LAYER_MAX:
                 x = v[viaiter*3+0]
                 y = v[viaiter*3+1]
                 z = v[viaiter*3+2]
                 if x == 0 and y == 0 and z == 0: break
-                if z < min_layer:
-                    if term_via_min != None:
-                        inter_via_set.add(term_via_min)
-                    min_layer = z
-                    term_via_min = (x,y,z)
-                elif z > max_layer:
-                    if term_via_max != None:
-                        inter_via_set.add(term_via_max)
-                    max_layer = z
-                    term_via_max = (x,y,z)
-                else:
-                    inter_via_set.add((x,y,z))
+                l.append( (x,y,z) )
                 viaiter += 1
+            ls = sorted(l, key=lambda s : s[2]) # sort using z
+            term_via_min = ls[0]
+            term_via_max = ls[-1]
+            term_via_set.add(term_via_min)
+            term_via_set.add(term_via_max)
+            inter_via_set = inter_via_set.union(ls[1:-2])
             assert(term_via_min != None)
             assert(term_via_max != None)
             term_via_set.add(term_via_min)
