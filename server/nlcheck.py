@@ -199,8 +199,8 @@ class NLCheck:
                     y = int(y)
                     z = int(z)
                     size_x, size_y, layer_num = size
-                    assert(1 <= x <= size_x)
-                    assert(1 <= y <= size_y)
+                    assert(0 <= x < size_x)
+                    assert(0 <= y < size_y)
                     assert(1 <= z <= layer_num)
                     line_mat[num-1, positer*3+0] = x
                     line_mat[num-1, positer*3+1] = y
