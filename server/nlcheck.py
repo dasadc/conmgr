@@ -632,9 +632,9 @@ class NLCheck:
     def check_4(self, xmat):
         "チェック4. 線は枝分かれしない。"
         judge = True
-        for z in range(0, xmat.shape[0]-2):
-            for y in range(0, xmat.shape[1]-2):
-                for x in range(0, xmat.shape[2]-2):
+        for z in range(0, xmat.shape[0]-1):
+            for y in range(0, xmat.shape[1]-1):
+                for x in range(0, xmat.shape[2]-1):
                     if xmat[z, y+1,x+1] == 0: continue # 0は空き地。xmatのズレ補正必要
                     if self.is_branched(xmat, x,y,z) == True:
                         print "check_4: found branch (%d,%d,%d) #%02d" % (x,y,z,xmat[z,y+1,x+1]) # 座標が1だけずれている
@@ -907,9 +907,9 @@ class NLCheck:
     def count_corners(self, nlines, xmat):
         "折れ曲がり回数を計算する"
         corner = np.zeros(nlines+1, dtype=np.integer)
-        for z in range(0, xmat.shape[0]-2):
-            for y in range(0, xmat.shape[1]-2):
-                for x in range(0, xmat.shape[2]-2):
+        for z in range(0, xmat.shape[0]-1):
+            for y in range(0, xmat.shape[1]-1):
+                for x in range(0, xmat.shape[2]-1):
                     num = xmat[z,y+1,x+1]
                     if num == 0: continue
                     if self.is_corner(xmat, x, y, z) == True:
