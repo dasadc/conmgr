@@ -533,6 +533,11 @@ class NLCheck:
                 if xmat[z,ny,nx] == num and clear[z,ny,nx] != 0:
                     self.clearConnectedLine(xmat, clear, nx,ny,z, term_set) # 再帰
 
+    def clearIfAlone(self, xmat, clear, x1, y1, z, term_set=set()):
+        "孤立しているなら消す"
+        #print x1,y1
+        if self.is_alone(xmat,x1-1,y1-1,z):
+            clear[z,y1,x1] = 0
 
     def check_filename(self, absinputf, abstargetf):
         "ファイル名の書式がルール通りかチェック"
@@ -654,6 +659,20 @@ class NLCheck:
             # 終点から線をたどって、消していく
             self.clearConnectedLine(xmat, clear, x1+1, y1+1, z1)
             #print clear[1:clear.shape[0]-1,1:clear.shape[1]-1]
+
+            # C2016_8: 途中層のビア（数字割当後に孤立しているビア）について
+            # ここでは不問とする。正式にチェックするのは
+            # self.check_ans_via_is_terminal_or_alone() にて。
+            for i in range(len(via_dic)):
+                v = via_mat[i]
+                viaiter = 0
+                while viaiter < LAYER_MAX:
+                    vx = v[viaiter*3+0]
+                    vy = v[viaiter*3+1]
+                    vz = v[viaiter*3+2]
+                    if (vx == 0) and (vy == 0) and (vz == 0): break
+                    self.clearIfAlone(xmat, clear, vx+1, vy+1, vz)
+                    viaiter+=1
         if clear.sum() == 0:
             # すべて消えた
             judge = True
