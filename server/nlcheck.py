@@ -88,35 +88,36 @@ if VERSION == VER_2016:
     " C2016_10. 問題フォーマットにて、層数は最大で8"
     LAYER_MAX=8         # ADC2016 restriction
 
-
 class NLCheck:
     "アルゴリズムデザインコンテスト（ナンバーリンクパズル）の回答チェック"
 
     def __init__(self):
         self.debug = False
         self.verbose = False
-        self.bom = bytearray([0xef,0xbb,0xbf]) # UTF-8 BOM
         np.set_printoptions(linewidth=255)
 
     def read_input_file(self, file):
         """問題ファイルを読み込む
+           （CLIから使用時のエントリポイント）
         Args:
             file: ファイルのパス名
         """
         # "U" universal newline, \n, \r\n, \r
         with open(file, "rU") as f:
-            return self.read_input_data(f)
+            s = f.read()
+            return self.read_input_str(s)
         #str = open(file).read()
         #return self.read_input_str(str)
 
 
     def read_input_str(self, str):
         """問題データ（テキスト文字列）を読み込む
+           （WebUIから使用時のエントリポイント）
         Args:
             str: 文字列
 
         """
-        str = unicode(str)
+        str = unicode(str, encoding='utf-8-sig', errors='strict') # get unicode without BOM
         f = io.StringIO(str, newline=None)
         ret = self.read_input_data(f)
         f.close()
@@ -155,10 +156,6 @@ class NLCheck:
             if line == "": break # EOFのとき
             line = line.rstrip() # chompみたいに、改行コードを抜く
             if line == "": continue # 空行のとき
-            if first:
-                first = False
-                if line.startswith(self.bom):
-                    line = line[len(self.bom):] # UnicodeのBOMを削除
             if self.debug: print "line=|%s|" % str(line)
 
             m = pSIZE3D.match(line)
@@ -267,14 +264,15 @@ class NLCheck:
         "チェック対象ファイルを読み込む"
         # "U" universal newline, \n, \r\n, \r
         with open(file, "rU") as f:
-            return self.read_target_data(f)
+            s = f.read()
+            return self.read_target_str(s)
         #str = open(file).read()
         #return self.read_target_str(str)
 
 
     def read_target_str(self, str):
         "チェック対象を文字列から読み込む"
-        str = unicode(str)
+        str = unicode(str, encoding='utf-8-sig', errors='strict') # get unicode without BOM
         f = io.StringIO(str, newline=None)
         ret = self.read_target_data(f)
         f.close()
@@ -297,10 +295,6 @@ class NLCheck:
             line = f.readline()
             eof = (line == "")
             line = line.rstrip() # chompみたいに、改行コードを抜く
-            if first:
-                first = False
-                if line.startswith(self.bom):
-                    line = line[len(self.bom):] # UnicodeのBOMを削除
             if line == "":       # 空行 or EOFのとき
                 if mat is not None: # 空行
                     line_cnt = 0
