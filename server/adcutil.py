@@ -12,6 +12,8 @@ import random
 import datetime
 from tz import gae_datetime_JST
 
+from define import DEFAULT_YEAR
+
 def adc_response(msg, isjson, code=200, json_encoded=False):
     if json_encoded:
         body = msg
@@ -138,7 +140,7 @@ def adc_get_user_list(users):
     res.extend(res2)
     return res
 
-def insert_Q_data(q_num, text, author="DASymposium", year=2015, uniq=True):
+def insert_Q_data(q_num, text, author="DASymposium", year=DEFAULT_YEAR, uniq=True):
     """
     問題データをデータベースに登録する。
     uniq==Trueのとき、q_numとauthorが重複する場合、登録は失敗する。
@@ -149,11 +151,11 @@ def insert_Q_data(q_num, text, author="DASymposium", year=2015, uniq=True):
         if q is not None:
             return (False, "Error: Q%d data already exists" % q_num) # 重複エラー
     # 問題データのチェック
-    (size, line_num, line_mat, msg, ok) = numberlink.read_input_data(text)
+    (size, line_num, line_mat, via_mat, via_dic, msg, ok) = numberlink.read_input_data(text)
     if not ok:
         return (False, "Error: syntax error in Q data\n"+msg)
     # text2は、textを正規化したテキストデータ（改行コードなど）
-    text2 = numberlink.generate_Q_data(size, line_num, line_mat)
+    text2 = numberlink.generate_Q_data(size, line_num, line_mat, via_mat, via_dic)
     # rootエンティティを決める
     userinfo = get_userinfo(author)
     if userinfo is None:
@@ -174,14 +176,14 @@ def insert_Q_data(q_num, text, author="DASymposium", year=2015, uniq=True):
     #
     return (True, size, line_num)
 
-def update_Q_data(q_num, text, author="DASymposium", year=2015):
+def update_Q_data(q_num, text, author="DASymposium", year=DEFAULT_YEAR):
     "問題データを変更する"
     # 問題データの内容チェック
-    (size, line_num, line_mat, msg, ok) = numberlink.read_input_data(text)
+    (size, line_num, line_mat, via_mat, via_dic, msg, ok) = numberlink.read_input_data(text)
     if not ok:
         return (False, "Error: syntax error in Q data\n"+msg, None, None)
 
-    text2 = numberlink.generate_Q_data(size, line_num, line_mat)
+    text2 = numberlink.generate_Q_data(size, line_num, line_mat, via_mat, via_dic)
     # 既存のエンティティを取り出す
     res = get_user_Q_data(q_num, author, year)
     if res is None:
@@ -192,7 +194,7 @@ def update_Q_data(q_num, text, author="DASymposium", year=2015):
         res.put()
     return (True, num, size, line_num)
 
-def get_Q_data(q_num, year=2015, fetch_num=5):
+def get_Q_data(q_num, year=DEFAULT_YEAR, fetch_num=5):
     "出題の番号を指定して、Question問題データをデータベースから取り出す"
     qla = ndb.Key(QuestionListAll, 'master', parent=qdata_key()).get()
     if qla is None:
@@ -217,7 +219,7 @@ def get_Q_author_all():
         # q.qnum は、問題登録したときの番号であり、出題番号ではない
     return authors
 
-def get_Q_data_text(q_num, year=2015, fetch_num=5):
+def get_Q_data_text(q_num, year=DEFAULT_YEAR, fetch_num=5):
     "問題のテキストを返す"
     result = get_Q_data(q_num, year, fetch_num)
     if result is not None:
@@ -228,7 +230,7 @@ def get_Q_data_text(q_num, year=2015, fetch_num=5):
         ret = False
     return ret, text
 
-def get_user_Q_data(q_num, author, year=2015, fetch_num=99):
+def get_user_Q_data(q_num, author, year=DEFAULT_YEAR, fetch_num=99):
     "qnumとauthorを指定して問題データをデータベースから取り出す"
     userinfo = get_userinfo(author)
     if userinfo is None:
@@ -349,7 +351,7 @@ def get_user_Q_all(author, html=None):
     return out
 
 
-def delete_user_Q_data(q_num, author, year=2015):
+def delete_user_Q_data(q_num, author, year=DEFAULT_YEAR):
     "qnumとauthorを指定して、問題データをデータベースから削除する"
     res = get_user_Q_data(q_num, author, year)
     msg = ""
@@ -582,13 +584,13 @@ def delete_user(username):
 def Q_check(qtext):
     "問題ファイルの妥当性チェックを行う"
     hr = '-'*40 + "\n"
-    res = numberlink.read_input_data(qtext)
-    if res[4]:
-        q = numberlink.generate_Q_data(res[0], res[1], res[2])
+    (size, line_num, line_mat, via_mat, via_dic, msg, ok) = numberlink.read_input_data(qtext)
+    if ok:
+        q = numberlink.generate_Q_data(size, line_num, line_mat, via_mat, via_dic)
         out = "OK\n" + hr + q + hr
     else:
-        out = "NG\n" + hr + qtext + hr + res[3]
-    return out, res[4]
+        out = "NG\n" + hr + qtext + hr + msg
+    return out, ok
 
 def calc_score_all():
     "スコア計算"

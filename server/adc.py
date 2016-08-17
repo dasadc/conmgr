@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# アルゴリズムデザインコンテスト 2015
+# アルゴリズムデザインコンテスト 2015 -> 2016
 #
 # Web部分
 #
@@ -14,6 +14,7 @@ import adcusers
 from adcutil import *
 import datetime
 import timekeeper
+from define import DEFAULT_YEAR
 
 app = Flask(__name__)
 app.config.from_object(adcconfig)
@@ -411,9 +412,9 @@ def user_q(username, q_num):
             return adc_response("permission denied", request_is_json(), 403)
         if q_num <= 0 or 4 <= q_num: # 問題番号の範囲チェック
             return adc_response("Q number is out of range", request_is_json(), 403)
-    if not priv_admin():
-        if g.state != 'Qup':
-            return adc_response("deadline passed", request_is_json(), 503)
+    #if not priv_admin():
+    #    if g.state != 'Qup':
+    #        return adc_response("deadline passed", request_is_json(), 503)
     log_request(username)
     if request.method == 'GET':
         result = get_user_Q_data(q_num, username)
@@ -592,7 +593,7 @@ def get_score():
     html = html_score_board(res[0])
     return adc_response_html(html)
     
-@app.route('/2015/', methods=['GET'])
+@app.route('/%s/' % DEFAULT_YEAR, methods=['GET'])
 def root():
     if authenticated() and not request_is_json():
         log_request(session['username'])

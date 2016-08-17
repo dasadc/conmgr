@@ -3,8 +3,9 @@
 
 from google.appengine.ext import ndb
 
+from define import DEFAULT_YEAR
 
-def qdata_key(year=2015):
+def qdata_key(year=DEFAULT_YEAR):
     "問題データのparent"
     return ndb.Key('Qdata', str(year))
 
