@@ -412,9 +412,9 @@ def user_q(username, q_num):
             return adc_response("permission denied", request_is_json(), 403)
         if q_num <= 0 or 4 <= q_num: # 問題番号の範囲チェック
             return adc_response("Q number is out of range", request_is_json(), 403)
-    #if not priv_admin():
-    #    if g.state != 'Qup':
-    #        return adc_response("deadline passed", request_is_json(), 503)
+    if not priv_admin():
+        if g.state != 'Qup':
+            return adc_response("deadline passed", request_is_json(), 503)
     log_request(username)
     if request.method == 'GET':
         result = get_user_Q_data(q_num, username)
