@@ -42,7 +42,7 @@ def generate_Q_data(size, line_num, line_mat, via_mat, via_dic):
     j = 0
     for i in line_mat:
         j += 1
-        out += "LINE#%d (%d,%d) (%d,%d)" % (j, i[0],i[1],i[2],i[3]) + crlf
+        out += "LINE#%d (%d,%d,%d) (%d,%d,%d)" % (j, i[0],i[1],i[2],i[3],i[4],i[5]) + crlf
 
     via_dic_inv = dict()
     for a,i in via_dic.items():
@@ -61,20 +61,20 @@ def generate_Q_data(size, line_num, line_mat, via_mat, via_dic):
         out += crlf
     return out
 
-def check_A_data(a_text, q_text):
+def check_A_data(a_str, q_uni):
     """回答データのチェックをする"""
+    # 問題データ q_uni (unicode)
+    # 回答データ a_str (str)
     nlc = NLCheck()
     #nlc.debug = True
-    #print "Q=",q_text
-    #print "A=",a_text
-    q = q_text.encode('utf-8')
-    print q #TODO: debug
-    print a_text
+    q_str = q_uni.encode('utf-8') # unicode -> str
+    #print "Q=",q_str
+    #print "A=",a_str
     #--------------------------------------
     out = io.BytesIO() # io.StringIO()だとTypeError: unicode argument expected, got 'str'
     sys.stdout = out # 標準出力を付け替える
-    input_data  = nlc.read_input_str(q) # 問題データ q_text (unicode encoded)
-    target_data = nlc.read_target_str(a_text) # 回答データ(string)
+    input_data  = nlc.read_input_str(q_str)
+    target_data = nlc.read_target_str(a_str)
     nlc.verbose = True
     judges = nlc.check(input_data, target_data)
     print "judges = ", judges

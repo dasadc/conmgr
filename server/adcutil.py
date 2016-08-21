@@ -418,7 +418,7 @@ def put_A_data(a_num, username, text, cpu_sec=None, mem_byte=None, misc_text=Non
     judges, msg = numberlink.check_A_data(text, q_text)
     q = 0.0
     na = len(judges)
-    if 1 < na: # 2015年ルールでは、回答は1つだけ
+    if 1 < na: # 2015,2016年ルールでは、回答は1つだけ
         msg += "Warning: too many answers(%d) in A%d. aceept first one only.\n" % (na, a_num)
     if na==0 or judges[0][0] == False:
         msg += "Error in answer A%d\n" % a_num
