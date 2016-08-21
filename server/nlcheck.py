@@ -631,7 +631,7 @@ class NLCheck:
     def check_4(self, xmat):
         "チェック4. 線は枝分かれしない。"
         judge = True
-        for z in range(0, xmat.shape[0]-2):
+        for z in range(0, xmat.shape[0]-1):
             for y in range(0, xmat.shape[1]-2):
                 for x in range(0, xmat.shape[2]-2):
                     if xmat[z, y+1,x+1] == 0: continue # 0は空き地。xmatのズレ補正必要
@@ -906,13 +906,13 @@ class NLCheck:
                     if num == 0: continue
                     length[num] += 1
                     #print "line_length: (%d,%d) #%02d %d" % (x,y,num,length[num])
-        if self.verbose: print "length=", length[1:] # 線ごとの線長
+        if self.verbose: print "length=", ["#%d:%d" % (i, c) for (i, c) in zip(range(nlines+1), length)[1:]] # 線ごとの線長
         return length.sum()
 
     def count_corners(self, nlines, xmat):
         "折れ曲がり回数を計算する"
         corner = np.zeros(nlines+1, dtype=np.integer)
-        for z in range(0, xmat.shape[0]-2):
+        for z in range(0, xmat.shape[0]-1):
             for y in range(0, xmat.shape[1]-2):
                 for x in range(0, xmat.shape[2]-2):
                     num = xmat[z,y+1,x+1]
@@ -920,7 +920,7 @@ class NLCheck:
                     if self.is_corner(xmat, x, y, z) == True:
                         corner[num] += 1
                         #print "corner: (%d,%d) #%02d %d" % (x,y,num,corner[num])
-        if self.verbose: print "corner=", corner[1:] # 線ごとの角の数
+        if self.verbose: print "corner=", ["#%d:%d" % (i, c) for (i, c) in zip(range(nlines+1), corner)[1:]] # 線ごとの角の数
         return corner.sum()
     
     def quality(self, input_data, mat, xmat):
