@@ -1031,11 +1031,12 @@ class NLCheck:
         firsttime = True
         out = None
         for ai in a2:
+            zz,yy,xx = ai.shape
             if firsttime:
                 firsttime = False
-                out = "SIZE %dX%d" % (ai.shape[1], ai.shape[0]) + crlf
-            for y in range(0, ai.shape[0]):
-                for x in range(0, ai.shape[1]):
+                out = "SIZE %dX%d" % (xx, yy) + crlf
+            for y in range(0, yy):
+                for x in range(0, xx):
                     out += "%02d" % ai[0,y,x]
                     if x == ai.shape[1]-1:
                         out += crlf
