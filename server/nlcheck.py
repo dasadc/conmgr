@@ -152,7 +152,7 @@ class NLCheck:
         via_dic = dict()
 
         while True:
-            line = f.readline()
+            line = f.readline().encode('ascii')
             if line == "": break # EOFのとき
             line = line.rstrip() # chompみたいに、改行コードを抜く
             if line == "": continue # 空行のとき
@@ -292,18 +292,20 @@ class NLCheck:
         first = True
         # "U" universal newline, \n, \r\n, \r
         while True:
-            line = f.readline()
+            line = f.readline().encode('ascii')
             eof = (line == "")
             line = line.rstrip() # chompみたいに、改行コードを抜く
             if line == "":       # 空行 or EOFのとき
-                if mat is not None: # 空行
+                if mat is not None:
+                    results.append(mat) # 解を追加
+                    mat = None
                     line_cnt = 0
                     if self.debug: print ""
                 if eof:
-                    results.append(mat) # 解を追加
-                    print "result data = "
-                    print mat
-                    mat = None
+                    #results.append(mat) # 解を追加
+                    #print "result data = "
+                    #print mat
+                    #mat = None
                     break
                 else:
                     continue
@@ -993,6 +995,7 @@ class NLCheck:
                
     def clean_a(self, q, a):
         "solverが出力する解が変なので、ちゃちゃっときれいにする"
+        #print "a=\n", a
         import nlclean
         a2 = []
         for ai in a:
@@ -1002,14 +1005,24 @@ class NLCheck:
                 print "ERROR: Zero Matrix"
                 continue
             line_mat = q[2]
+            #print "line_mat=\n", line_mat
+            #print "clean_a: mat=", mat.shape
+            #print "clean_a: mat=\n", mat
             xmat = self.extend_matrix(mat)
-            xmat2 = nlclean.clean(line_mat, xmat)
+            #print "clean_a: xmat=", xmat.shape
+            #print "clean_a: xmat=\n", xmat
+            #print "clean_a: xmat[1]=\n", xmat[1]
+            xmat2 = nlclean.clean(line_mat, xmat[1]) # z=1だけ
             #print "xmat2=\n", xmat2
             #print (xmat==xmat2)
             xmat3 = nlclean.short_cut(line_mat, xmat2)
-            #print "xmat3=\n", xmat3
+            #print "clean_a: xmat3=\n", xmat3
             #xmat3 = xmat2
-            a2.append( xmat3[1:-1, 1:-1] ) # xmatをmatに戻す。周囲を1だけ削る
+            # xmatをmatに戻す。周囲を1だけ削る
+            xmat4 = np.zeros(mat.shape, xmat3.dtype) # Z軸の次元を増やす
+            xmat4[0] = xmat3[1:-1, 1:-1]
+            #print "clean_a: xmat4=\n", xmat4
+            a2.append( xmat4 ) # xmatをmatに戻す。周囲を1だけ削る
         return a2
 
     def generate_A_data(self, a2):
@@ -1023,7 +1036,7 @@ class NLCheck:
                 out = "SIZE %dX%d" % (ai.shape[1], ai.shape[0]) + crlf
             for y in range(0, ai.shape[0]):
                 for x in range(0, ai.shape[1]):
-                    out += "%02d" % ai[y,x]
+                    out += "%02d" % ai[0,y,x]
                     if x == ai.shape[1]-1:
                         out += crlf
                     else:
