@@ -223,7 +223,7 @@ sub print_Q_adc2016 {
     my @lines = ();
     my @endpoints = ();
     my %viaList = ();
-    print $fp sprintf("SIZE %dX%d\r\n", $xmax0+1, $ymax0+1);
+    print $fp sprintf("SIZE %dX%dX%d\r\n", $xmax0+1, $ymax0+1, $nlayers);
     print $fp sprintf("LINE_NUM %d\r\n", $maxNum);
     for ( my $layer = 1; $layer <= $nlayers; $layer ++ ) {
 	my $en = $enum_num[$layer];
