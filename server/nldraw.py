@@ -72,7 +72,7 @@ def drawNumbers(img, colors, size, line_num, line_mat):
         p = line_mat[i]
         num = str(i+1)
         img.string( gd.gdFontLarge, xy(p[0],p[1]), num, cblack )
-        img.string( gd.gdFontLarge, xy(p[2],p[3]), num, cblack )
+        img.string( gd.gdFontLarge, xy(p[3],p[4]), num, cblack )
 
 def is_connected(xmat, x, y):
     "N,E,W,S方向と、番号が同じか？"
