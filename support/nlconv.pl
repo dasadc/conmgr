@@ -302,14 +302,14 @@ sub print_Q_adc2016 {
     for ( my $line = 1; $line <= $maxNum; $line ++ ) {
 	if (defined $numbers0[$line]) {
 	    #printf("numbers0[%d] = %d\n", $line, $numbers0[$line]);
-	    print $fp sprintf("LINE#%d %s %s\n", $line, $lines[$line]->{pos0}, $lines[$line]->{pos1});
+	    print $fp sprintf("LINE#%d %s %s\r\n", $line, $lines[$line]->{pos0}, $lines[$line]->{pos1});
 	} else {
-	    print $fp sprintf("ERROR: cannot find number %d\n", $line);
+	    print $fp sprintf("ERROR: cannot find number %d\r\n", $line);
 	    printf("ERROR: cannot find number %d\n", $line);
 	}
     }
     foreach my $viaName (sort keys %viaList) {
-	print $fp sprintf("VIA#%s%s\n", $viaName, $viaList{$viaName});
+	print $fp sprintf("VIA#%s%s\r\n", $viaName, $viaList{$viaName});
     }
 }
 
