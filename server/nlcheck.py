@@ -1045,6 +1045,18 @@ class NLCheck:
             out += crlf
         return out
 
+    def graphic_png(self, q, a, filename):
+        "回答データをグラフィックとして描画"
+        import nldraw
+        images = nldraw.draw(q, a, self)
+        base = re.sub("\.png", "", filename)
+        num = 0
+        for img in images:
+            file = "%s.%d.png" % (base, num)
+            img.writePng(file)
+            print file
+            num += 1
+        
     def graphic_gif(self, q, a, filename):
         "回答データをグラフィックとして描画"
         import nldraw
@@ -1067,12 +1079,13 @@ class NLCheck:
 -i|--input=FILE
 -t|--target=FILE
 -c|--clean=FILE
+-p|--png=FILE
 -g|--gif=FILE
 """
 
     def main(self):
         try:
-            opts, args = getopt.getopt(sys.argv[1:], "hdvi:t:c:g:", ["help","debug","verbose","input=","target=","clean=","gif="])
+            opts, args = getopt.getopt(sys.argv[1:], "hdvi:t:c:p:g:", ["help","debug","verbose","input=","target=","clean=","png=","gif="])
         except getopt.GetoptError:
             self.usage()
             sys.exit(2)
@@ -1082,6 +1095,7 @@ class NLCheck:
         target_file = None
         clean = None
         gif = None
+        png = None
         for o,a in opts:
             if o in ("-h","--help"):
                 self.usage()
@@ -1096,6 +1110,8 @@ class NLCheck:
                 target_file = a
             elif o in ("-c", "--clean"):
                 clean = a
+            elif o in ("-p", "--png"):
+                png = a
             elif o in ("-g", "--gif"):
                 gif = a
         if input_file :
@@ -1114,6 +1130,8 @@ class NLCheck:
             print "judges = ", judges
             if gif is not None:
                 self.graphic_gif(input_data, target_data, gif)
+            if png is not None:
+                self.graphic_png(input_data, target_data, png)
         if input_file is not None and target_file is not None:
             self.check_filename(input_file, target_file)
 

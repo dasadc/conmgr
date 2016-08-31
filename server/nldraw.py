@@ -34,7 +34,7 @@ def xy(x,y):
     return (x*unit, y*unit)
     
 def newImage(size):
-    x,y = size
+    x,y,z = size
     img = gd.image( ((x+1)*unit, (y+1)*unit) )
     colors = { 'white': img.colorAllocate((255,255,255)),
                'black': img.colorAllocate((0,0,0)),
@@ -47,7 +47,7 @@ def newImage(size):
     return img, colors
 
 def drawGrid(img, colors, size):
-    x,y = size
+    x,y,z = size
     cgray = colors['gray']
     for x0 in range(0,x):
         for y0 in range(0,y):
@@ -59,7 +59,7 @@ def drawGrid(img, colors, size):
             
 def drawNumbers(img, colors, size, line_num, line_mat):
     #print "line_mat shape =", line_mat.shape
-    x,y = size
+    x,y,z = size
     cblue = colors['blue']
     cblack = colors['black']
     # ますの座標を描画
@@ -139,7 +139,7 @@ def draw(q, a, nlc):
         if mat.sum() == 0: # ログファイルを読み込んだとき、ゼロ行列がついてくるので、それを除外する
             continue
         xmat = nlc.extend_matrix(mat)
-        drawLines(img, colors, q[0], xmat)
+        drawLines(img, colors, q[0], xmat[1]) # [1]だけでよい
         #file = "nldraw.%d.gif" % an
         #img.writeGif(file)
         images.append(img)
