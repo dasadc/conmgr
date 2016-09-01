@@ -14,9 +14,11 @@ import numpy as np
 def distance(line_mat, xmat):
     "距離を数え上げる"
     xd = np.full( xmat.shape, -1, np.integer ) # 距離の行列。初期値-1
+    #print "distance: xmat=\n", xmat
+    #print "distance: xd=\n", xd
     # 始点の距離を0とする
     for i in range(0, line_mat.shape[0]):
-        (x0,y0,x1,y1) = line_mat[i]
+        (x0,y0,z0, x1,y1,z1) = line_mat[i]
         xd[y0+1,x0+1] = 0                 # 座標が+1ずれる
     update = True
     while update:
@@ -37,7 +39,7 @@ def distance1(num, line_mat, xmat):
     "1本の線について、空き地を通ることを許して、距離を数え上げる"
     xd = np.full( xmat.shape, -1, np.integer ) # 距離の行列。初期値-1
     # 始点の距離を0とする
-    (x0,y0,x1,y1) = line_mat[num-1]   # 線の番号は1から始まる
+    (x0,y0,z0, x1,y1,z1) = line_mat[num-1]   # 線の番号は1から始まる
     xd[y0+1,x0+1] = 0                 # 座標が+1ずれる
     #goal1 = (y1+1,x1+1)
     #dmin = xmat.shape[0] * xmat.shape[1] * 2 # 適当な初期値
@@ -73,7 +75,7 @@ def min_route(line_mat, xmat, xd):
     # foundは、線ごとの、今までに見つかった最短距離
     found = np.zeros( line_mat.shape[0]+1, np.integer ) # 線の番号は1から始まるので+1
     for i in range(0, line_mat.shape[0]):
-        (x0,y0,x1,y1) = line_mat[i]
+        (x0,y0,z0, x1,y1,z1) = line_mat[i]
         xkeep[y1+1,x1+1] = 1                  # 座標が+1ずれる
         found[i+1] = xd[y1+1,x1+1]            # 初期値
     #print "init xkeep=\n", xkeep
@@ -110,7 +112,7 @@ def min_route1(num, line_mat, xmat, xd):
     xkeep = np.zeros( xd.shape, np.integer )
     # foundは、線ごとの、今までに見つかった最短距離
     found = np.zeros( line_mat.shape[0]+1, np.integer ) # 線の番号は1から始まるので+1
-    (x0,y0,x1,y1) = line_mat[num-1]
+    (x0,y0,z0, x1,y1,z1) = line_mat[num-1]
     xkeep[y1+1,x1+1] = 1                  # 座標が+1ずれる
     found[num] = xd[y1+1,x1+1]            # 初期値
     #print "num=", num
