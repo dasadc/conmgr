@@ -110,9 +110,11 @@ class ADCClient:
             conn = httplib.HTTPConnection(self.hostname, port)
             path2 = self.path + path
         #print "path2=",path2
+        #print "headers=",headers
         conn.request(method, path2, params, headers)
         response = conn.getresponse()
         data = response.read()
+        #print "getheaders=",response.getheaders()
         res = [response.version,
                response.status,
                response.reason,
@@ -145,7 +147,8 @@ class ADCClient:
         #print res
         if res[1] == 200:
             if self.debug: print "Success", res[1], res[2], "\n" #, res[5]
-            self.cookie = res[4]
+            if res[4] is not None:
+                self.cookie = res[4]
         else:
             if self.debug: print "Failed", res[1], res[2], "\n" #, res[5]
         #print type(res[5]), res[5]
