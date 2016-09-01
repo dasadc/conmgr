@@ -1051,11 +1051,14 @@ class NLCheck:
         images = nldraw.draw(q, a, self)
         base = re.sub("\.png", "", filename)
         num = 0
+        res = []
         for img in images:
             file = "%s.%d.png" % (base, num)
             img.writePng(file)
-            print file
+            #print file
+            res.append(file)
             num += 1
+        return res
         
     def graphic_gif(self, q, a, filename):
         "回答データをグラフィックとして描画"
@@ -1063,12 +1066,14 @@ class NLCheck:
         images = nldraw.draw(q, a, self)
         base = re.sub("\.gif", "", filename)
         num = 0
+        res = []
         for img in images:
             file = "%s.%d.gif" % (base, num)
             img.writeGif(file)
-            print file
+            #print file
+            res.append(file)
             num += 1
-        
+        return res
     
     def usage(self):
         print "usage:",sys.argv[0],

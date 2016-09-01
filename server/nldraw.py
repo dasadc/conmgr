@@ -57,7 +57,7 @@ def drawGrid(img, colors, size):
             #print x0,y0,xx,yy
             img.rectangle( (xx,yy), (xx+unit,yy+unit), cgray )
             
-def drawNumbers(img, colors, size, line_num, line_mat):
+def drawNumbers(img, colors, size, line_num, line_mat, layer):
     #print "line_mat shape =", line_mat.shape
     x,y,z = size
     cblue = colors['blue']
@@ -70,9 +70,28 @@ def drawNumbers(img, colors, size, line_num, line_mat):
     # 数字
     for i in range(0, line_num):
         p = line_mat[i]
+        #print "p=", p
         num = str(i+1)
-        img.string( gd.gdFontLarge, xy(p[0],p[1]), num, cblack )
-        img.string( gd.gdFontLarge, xy(p[3],p[4]), num, cblack )
+        if p[2] == layer:
+            img.string( gd.gdFontLarge, xy(p[0],p[1]), num, cblack )
+        if p[5] == layer:
+            img.string( gd.gdFontLarge, xy(p[3],p[4]), num, cblack )
+
+def drawViaNumbers(img, colors, size, via_mat, via_dic, drawlayer):
+    via_num = len(via_dic)
+    layer_num = size[2]
+    cblue = colors['blue']
+    for via in range(0, via_num):
+        for key,val in via_dic.items():
+            if val == via+1:
+                via_name = key
+        for layer in range(0, layer_num):
+            x = via_mat[via, layer*3+0]
+            y = via_mat[via, layer*3+1]
+            z = via_mat[via, layer*3+2]
+            if drawlayer == z:
+                s = via_name
+                img.string( gd.gdFontLarge, xy(x,y), s, cblue )
 
 def is_connected(xmat, x, y):
     "N,E,W,S方向と、番号が同じか？"
@@ -132,18 +151,24 @@ def draw(q, a, nlc):
     an = 0
     images = []
     for i in range(0, len(a)):
-        img, colors = newImage(q[0])
-        drawGrid(img, colors, q[0])
-        drawNumbers(img, colors, q[0], q[1], q[2])
         mat = a[i]
         if mat.sum() == 0: # ログファイルを読み込んだとき、ゼロ行列がついてくるので、それを除外する
             continue
         xmat = nlc.extend_matrix(mat)
-        drawLines(img, colors, q[0], xmat[1]) # [1]だけでよい
-        #file = "nldraw.%d.gif" % an
-        #img.writeGif(file)
-        images.append(img)
-        an += 1
+        #print "xmat.shape=", xmat.shape
+        #print "xmat=", xmat
+        for j in range(1, xmat.shape[0]-1):
+            # Z軸方向でループ。0番とラストは、extendしたカラッポの層
+            #print "j=%d\n" % j, xmat[j]
+            img, colors = newImage(q[0])
+            drawGrid(img, colors, q[0])
+            drawNumbers(img, colors, q[0], q[1], q[2], j)
+            drawViaNumbers(img, colors, q[0], q[3], q[4], j)
+            drawLines(img, colors, q[0], xmat[j])
+            #file = "nldraw.%d.gif" % an
+            #img.writeGif(file)
+            images.append(img)
+            an += 1
     return images
 
 def main():
