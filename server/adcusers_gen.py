@@ -19,11 +19,12 @@ USERS = [
 """ % __file__
 
 for t in USERS:
-    str = SALT + t[0] + t[1]
-    h = sha256(str).hexdigest()
-    u +="    [ '%s', '%s', u'%s', %4d, %4d ],\n" % (t[0],h,t[2],t[3],t[4])
-u += "]\n"
-#print u
+    if t[4] == 0:
+        # 管理者権限を持っているユーザーだけ、出力する
+        str = SALT + t[0] + t[1]
+        h = sha256(str).hexdigest()
+        u +="    [ '%s', '%s', u'%s', %4d, %4d ],\n" % (t[0],h,t[2],t[3],t[4])
+        u += "]\n"
 
 with open(filename, "w") as f:
     f.write(u.encode('utf-8'))
