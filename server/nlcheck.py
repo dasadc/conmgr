@@ -152,7 +152,7 @@ class NLCheck:
         via_dic = dict()
 
         while True:
-            line = f.readline()
+            line = f.readline().encode('ascii')
             if line == "": break # EOFのとき
             line = line.rstrip() # chompみたいに、改行コードを抜く
             if line == "": continue # 空行のとき
@@ -292,18 +292,20 @@ class NLCheck:
         first = True
         # "U" universal newline, \n, \r\n, \r
         while True:
-            line = f.readline()
+            line = f.readline().encode('ascii')
             eof = (line == "")
             line = line.rstrip() # chompみたいに、改行コードを抜く
             if line == "":       # 空行 or EOFのとき
-                if mat is not None: # 空行
+                if mat is not None:
+                    results.append(mat) # 解を追加
+                    mat = None
                     line_cnt = 0
                     if self.debug: print ""
                 if eof:
-                    results.append(mat) # 解を追加
-                    print "result data = "
-                    print mat
-                    mat = None
+                    #results.append(mat) # 解を追加
+                    #print "result data = "
+                    #print mat
+                    #mat = None
                     break
                 else:
                     continue
@@ -993,6 +995,7 @@ class NLCheck:
                
     def clean_a(self, q, a):
         "solverが出力する解が変なので、ちゃちゃっときれいにする"
+        #print "a=\n", a
         import nlclean
         a2 = []
         for ai in a:
@@ -1002,14 +1005,24 @@ class NLCheck:
                 print "ERROR: Zero Matrix"
                 continue
             line_mat = q[2]
+            #print "line_mat=\n", line_mat
+            #print "clean_a: mat=", mat.shape
+            #print "clean_a: mat=\n", mat
             xmat = self.extend_matrix(mat)
-            xmat2 = nlclean.clean(line_mat, xmat)
+            #print "clean_a: xmat=", xmat.shape
+            #print "clean_a: xmat=\n", xmat
+            #print "clean_a: xmat[1]=\n", xmat[1]
+            xmat2 = nlclean.clean(line_mat, xmat[1]) # z=1だけ
             #print "xmat2=\n", xmat2
             #print (xmat==xmat2)
             xmat3 = nlclean.short_cut(line_mat, xmat2)
-            #print "xmat3=\n", xmat3
+            #print "clean_a: xmat3=\n", xmat3
             #xmat3 = xmat2
-            a2.append( xmat3[1:-1, 1:-1] ) # xmatをmatに戻す。周囲を1だけ削る
+            # xmatをmatに戻す。周囲を1だけ削る
+            xmat4 = np.zeros(mat.shape, xmat3.dtype) # Z軸の次元を増やす
+            xmat4[0] = xmat3[1:-1, 1:-1]
+            #print "clean_a: xmat4=\n", xmat4
+            a2.append( xmat4 ) # xmatをmatに戻す。周囲を1だけ削る
         return a2
 
     def generate_A_data(self, a2):
@@ -1018,12 +1031,13 @@ class NLCheck:
         firsttime = True
         out = None
         for ai in a2:
+            zz,yy,xx = ai.shape
             if firsttime:
                 firsttime = False
-                out = "SIZE %dX%d" % (ai.shape[1], ai.shape[0]) + crlf
-            for y in range(0, ai.shape[0]):
-                for x in range(0, ai.shape[1]):
-                    out += "%02d" % ai[y,x]
+                out = "SIZE %dX%d" % (xx, yy) + crlf
+            for y in range(0, yy):
+                for x in range(0, xx):
+                    out += "%02d" % ai[0,y,x]
                     if x == ai.shape[1]-1:
                         out += crlf
                     else:
@@ -1031,18 +1045,35 @@ class NLCheck:
             out += crlf
         return out
 
+    def graphic_png(self, q, a, filename):
+        "回答データをグラフィックとして描画"
+        import nldraw
+        images = nldraw.draw(q, a, self)
+        base = re.sub("\.png", "", filename)
+        num = 0
+        res = []
+        for img in images:
+            file = "%s.%d.png" % (base, num)
+            img.writePng(file)
+            #print file
+            res.append(file)
+            num += 1
+        return res
+        
     def graphic_gif(self, q, a, filename):
         "回答データをグラフィックとして描画"
         import nldraw
         images = nldraw.draw(q, a, self)
         base = re.sub("\.gif", "", filename)
         num = 0
+        res = []
         for img in images:
             file = "%s.%d.gif" % (base, num)
             img.writeGif(file)
-            print file
+            #print file
+            res.append(file)
             num += 1
-        
+        return res
     
     def usage(self):
         print "usage:",sys.argv[0],
@@ -1053,12 +1084,13 @@ class NLCheck:
 -i|--input=FILE
 -t|--target=FILE
 -c|--clean=FILE
+-p|--png=FILE
 -g|--gif=FILE
 """
 
     def main(self):
         try:
-            opts, args = getopt.getopt(sys.argv[1:], "hdvi:t:c:g:", ["help","debug","verbose","input=","target=","clean=","gif="])
+            opts, args = getopt.getopt(sys.argv[1:], "hdvi:t:c:p:g:", ["help","debug","verbose","input=","target=","clean=","png=","gif="])
         except getopt.GetoptError:
             self.usage()
             sys.exit(2)
@@ -1068,6 +1100,7 @@ class NLCheck:
         target_file = None
         clean = None
         gif = None
+        png = None
         for o,a in opts:
             if o in ("-h","--help"):
                 self.usage()
@@ -1082,6 +1115,8 @@ class NLCheck:
                 target_file = a
             elif o in ("-c", "--clean"):
                 clean = a
+            elif o in ("-p", "--png"):
+                png = a
             elif o in ("-g", "--gif"):
                 gif = a
         if input_file :
@@ -1100,6 +1135,8 @@ class NLCheck:
             print "judges = ", judges
             if gif is not None:
                 self.graphic_gif(input_data, target_data, gif)
+            if png is not None:
+                self.graphic_png(input_data, target_data, png)
         if input_file is not None and target_file is not None:
             self.check_filename(input_file, target_file)
 

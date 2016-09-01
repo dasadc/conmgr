@@ -53,3 +53,5 @@ pip-log.txt
 sdist/
 target/
 var/
+curl_cookies
+CURL_COOKIES
