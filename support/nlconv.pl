@@ -240,21 +240,28 @@ sub print_Q_adc2016 {
 	    }
 	    if (defined $pos0[$line]) {
 		if (!defined $pos1[$line]) {
-		    printf("ERROR: cannot find second number of LINE %d\n", $line);
-		    continue;
+		    my $through_via = is_through_via($data, $line, $layer);
+		    if (defined $through_via) {
+			my $viaName = $through_via->{name};
+			if (!defined $viaList{$viaName}) { $viaList{$viaName} = ""; }
+			$viaList{$viaName} .= sprintf(" (%d,%d,%d)", $through_via->{x}, $through_via->{y}, $through_via->{z});
+		    } else {
+			printf("ERROR: cannot find second number of LINE %d\n", $line);
+		    }
+		    next; # いずれにしても、処理続行
 		}
 		my ($x0, $y0, $x1, $y1);
 		if ($pos0[$line] =~ /\((\d+),(\d+)\)/ ) {
 		    ($x0, $y0) = ($1, $2);
 		} else {
 		    printf("BUG: format error: LINE %d pos0=%s\n", $line, $pos0[$line]);
-		    continue;
+		    next;
 		}
 		if ($pos1[$line] =~ /\((\d+),(\d+)\)/ ) {
 		    ($x1, $y1) = ($1, $2);
 		} else {
 		    printf("BUG: format error: LINE %d pos1=%s\n", $line, $pos1[$line]);
-		    continue;
+		    next;
 		}
 		my $via0 = find_via($data->[$layer]->{via}, $x0, $y0, $layer);
 		my $via1 = find_via($data->[$layer]->{via}, $x1, $y1, $layer);
@@ -339,11 +346,12 @@ sub read_sheet1 {
 sub dump_vias {
     my ($vias) = @_;
     for my $via (sort keys %$vias) {
-	printf("%s (%d,%d,%d)\n",
+	printf("%s (%d,%d,%d)=%d\n",
 	       $via,
 	       $vias->{$via}->{x},
 	       $vias->{$via}->{y},
-	       $vias->{$via}->{z});
+	       $vias->{$via}->{z},
+	       $vias->{$via}->{val});
     }
 }
 
@@ -396,6 +404,23 @@ sub check_via {
     return $err;
 }
 
+# LAYERを通過するviaか？ （厳密なチェックではない）
+sub is_through_via {
+    my ( $data, $line, $layer ) = @_;
+    my @tmp = @{$data};
+    my $nlayers = $#tmp;
+    if ($layer == 1 || $layer == $nlayers) { # 最下位層 or 最上位層
+	return undef; # 違う
+    }
+    my $vias = $data->[$layer]->{via};
+    for my $via (sort keys %$vias) {
+	if ($vias->{$via}->{val} == $line) {
+	    return $vias->{$via}; # 通過するviaである（可能性がある。もしもそこから線がのびてたら、ADC2016のルール違反）
+	}
+    }
+    return undef; # 違う
+}
+
 sub get_ban_data {
     my ($ban, $nrows, $ncols, $layer) = @_;
     my $xmax = 1 + $ncols - 1;  # 盤のデータは第1列から始まる(列0からスタート)
@@ -415,7 +440,7 @@ sub get_ban_data {
 		$val =~ s/ //g; # 余分なスペースを削除
 		my @tmp = split(/=/, $val);
 		if ($#tmp == 1) {
-		    $vias->{$tmp[0]} = {x => ($x-1), y => ($y-3), z => $layer};
+		    $vias->{$tmp[0]} = {x => ($x-1), y => ($y-3), z => $layer, val => $tmp[1], name=>$tmp[0]};
 		    $val = $tmp[1];
 		}
 		$ban2->[$x-1][$y-3] = $val;
