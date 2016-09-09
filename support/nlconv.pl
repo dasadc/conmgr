@@ -440,7 +440,7 @@ sub is_completed {
 }
 
 sub write_file {
-    my ($multiData, $basefile, $worksheetbase, $dataA) = @_;
+    my ($multiData, $basefile, $worksheetbase, $dataA, $layer_format) = @_;
     my @tmp = @{$multiData->{$worksheetbase}};
     my $nlayers = $#tmp;
     #print "nlayers=$nlayers\n";
@@ -476,7 +476,7 @@ sub write_file {
     $ofilename = sprintf("%s_%s.csv", $basefile, $worksheetbase);
     print $ofilename . "\n";
     open( my $fp1, ">$ofilename") || die "ERROR: open $ofilename";
-    if ( $nlayers == 1 ) {
+    if ( $layer_format == 0 ) {
 	#print_ban_csv( $ban, $fp1 );
 	#print "1: ban=" . $ban . "\n";
 	print_ban( $ban, $fp1, 1 );
@@ -488,7 +488,7 @@ sub write_file {
     my $ofilename_adc = sprintf("%s_%s_adc.txt", $basefile, $worksheetbase);
     print $ofilename_adc . "\n";
     open( my $fp2, ">$ofilename_adc") || die "ERROR: open $ofilename_adc";
-    if ( $nlayers == 1 ) {
+    if ( $layer_format == 0 ) {
 	print_Q_adc( $ban, $fp2 );
     } else {
 	print_Q_adc2016( $data, $fp2 );
@@ -506,6 +506,7 @@ sub proc1_sheet {
     my $ncols   = $ban->[0][1]; # 列数  "0000","列"  セルA2
     my $layer   = $ban->[3][0]; # 層の番号           セルD1
     my $nlayers = $ban->[5][0]; # 層数               セルF1
+    my $layer_format = 0;       # 1 = 層が定義されている(2016年ルール)
     if ( !(defined($nrows) && defined($ncols)) ) {
 	next;
     }
@@ -526,6 +527,7 @@ sub proc1_sheet {
 	    printf("ERROR: layer %d is out of range\n", $layer);
 	    return -1;
 	}
+	$layer_format = 1; # 2016年ルール
     } elsif (defined($layer) && !defined($nlayers)) {
 	printf("ERROR: missing number of layer. check cell F1\n");
 	return -1;
@@ -535,6 +537,7 @@ sub proc1_sheet {
     } else {
 	$layer = 1;
 	$nlayers = 1;
+	$layer_format = 0; # 2015年以前のルール
     }
     if ( $nrows <= 0 || $ncols <= 0 ) {
 	print "SKIP: sheet $worksheetname\n";
@@ -552,7 +555,7 @@ sub proc1_sheet {
     
     if ( $complete ) {
 	check_via($multiData->{$worksheetbase});
-	write_file($multiData, $basefile, $worksheetbase, $dataA);
+	write_file($multiData, $basefile, $worksheetbase, $dataA, $layer_format);
     }
 }
 
