@@ -1038,7 +1038,7 @@ class NLCheck:
             for y in range(0, yy):
                 for x in range(0, xx):
                     out += "%02d" % ai[0,y,x]
-                    if x == ai.shape[1]-1:
+                    if x == xx-1:
                         out += crlf
                     else:
                         out += ","
