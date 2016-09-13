@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+# convert A file to ADC2015 format
+
+OUT=`basename $1 .txt`.2016.txt
+awk '{print $0; if (NR==1){printf("LAYER 1\r\n");}}' $1 > $OUT
