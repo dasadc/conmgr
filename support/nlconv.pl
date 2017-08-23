@@ -233,9 +233,12 @@ sub print_Q_adc2016 {
 	for ( my $line = 1; $line <= $maxNum; $line ++ ) {
 	    if (defined $numbers{$line}) {
 		if (defined $numbers0[$line]) {
+		    #printf("1: numbers0[%d] = %d\n", $line, $numbers0[$line]);
 		    $numbers0[$line] += $numbers{$line};
+		    #printf("2: numbers0[%d] = %d\n", $line, $numbers0[$line]);
 		} else {
 		    $numbers0[$line] = $numbers{$line};
+		    #printf("0: numbers0[%d] = %d\n", $line, $numbers0[$line]);
 		}
 	    }
 	    if (defined $pos0[$line]) {
@@ -298,7 +301,7 @@ sub print_Q_adc2016 {
 		    }
 		} else {
 		    #printf("VIA1 (%d,%d,%d) for LINE#%d\n", $x1, $y1, $layer, $line);
-		    if (!defined $viaList{$via1}) { $viaList{$via1} = (); }
+		    if (!defined $viaList{$via1}) { $viaList{$via1} = ""; }
 		    #push $viaList{$via1}, sprintf("%d,%d,%d", $x1, $y1, $layer);
 		    $viaList{$via1} .= sprintf(" (%d,%d,%d)", $x1, $y1, $layer);
 		}
