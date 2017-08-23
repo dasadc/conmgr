@@ -1,6 +1,10 @@
+/.ipynb_checkpoints
 /gdmodule-0.58
+/nlconv.html
+/sample2017_Q*
+/sample2017err_Q*
 /sample_Q*.csv
 /sample_Q*.txt
 /sample_Q*_adc.txt
 /sample_Q*_adc_sol.txt
-/~$sample.xlsx
+/~$*.xlsx
