@@ -302,12 +302,8 @@ class NLCheck:
         northEq    = 1 if (xmat[z,   y1-1,x1  ] == num) else 0
         westEq     = 1 if (xmat[z,   y1,  x1-1] == num) else 0
         southEq    = 1 if (xmat[z,   y1+1,x1  ] == num) else 0
-        if VERSION == VER_2017: # ADC2017では３次元に拡張
-            upperEq    = 1 if (xmat[z+1, y1  ,x1  ] == num) else 0
-            lowerEq    = 1 if (xmat[z-1, y1  ,x1  ] == num) else 0
-        else: # 上下の層は、無視する
-            upperEq = 0
-            lowerEq = 0
+        upperEq    = 1 if (xmat[z+1, y1  ,x1  ] == num) else 0
+        lowerEq    = 1 if (xmat[z-1, y1  ,x1  ] == num) else 0
         return eastEq, northEq, westEq, southEq, upperEq, lowerEq
 
     def is_terminal(self, xmat, x, y, z):
