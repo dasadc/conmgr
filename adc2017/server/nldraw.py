@@ -10,7 +10,6 @@ import sys
 from nlcheck import NLCheck
 from os.path import basename
 import re
-import nlclean
 
 unit = 20 # 描画するときの、升目1つのサイズ
 

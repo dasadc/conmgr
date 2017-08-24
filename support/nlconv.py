@@ -43,9 +43,15 @@ usage: ./nlconv.py [-h] INPUTFILE.xlsx ...
 from __future__ import print_function
 import sys
 import os
+# ./lib/ をsys.pathの末尾に追加
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), './lib')))
 import re
 from openpyxl import load_workbook
+# python3でlong型
+if sys.version_info > (3,):
+    long = int
 #import json
+
 
 rule = 2017 # ADCルール（デフォルト値）
 
@@ -263,7 +269,7 @@ def clear_number_3D(data):
         for x in range(0, xmax):
             for y in range(0, ymax):
                 num = ban[x][y]
-                if num in ('-', ' '):
+                if num in ('-', ' ', 0):
                     continue
                 count = 0
                 # N(上)のマスと同じ値か？ 
@@ -285,7 +291,7 @@ def clear_number_3D(data):
                 if banD and (banD[x][y] == num):
                     count += 1
                 same[z][x][y] = count
-                #print('(%d,%d,%d) = %d' % (x,y,z,count))
+                #print('%s (%d,%d,%d) = %d' % (num, x,y,z, count))
     #for z in range(1, nlayers+1):
     #    print('layer=%d, same=' % z); print_ban(same[z], sys.stdout)
     #本当に消す
@@ -294,7 +300,7 @@ def clear_number_3D(data):
         for x in range(0, xmax):
             for y in range(0, ymax):
                     if 3 <= same[z][x][y]: # 分岐がある
-                        print('WARNING: branch (%d,%d,%d)' % (x,y,z))
+                        print('WARNING: branch (%d,%d,%d) #same=%d' % (x,y,z, same[z][x][y]))
                     if 2 <= same[z][x][y]:
                         ban[x][y] = ' '
         #print('LAYER %d' % z); print_ban(ban, sys.stdout)

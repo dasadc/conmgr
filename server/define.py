@@ -2,4 +2,4 @@
 #
 # デフォルト値設定ファイル
 
-DEFAULT_YEAR=2016
+DEFAULT_YEAR=2017
