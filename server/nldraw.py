@@ -4,13 +4,13 @@
 # py-gdで絵を描く
 #
 # Copyright (C) 2015 Fujitsu
+# Copyright (C) 2017 DA Symposium
 
 import gd
 import sys
 from nlcheck import NLCheck
 from os.path import basename
 import re
-import nlclean
 
 unit = 20 # 描画するときの、升目1つのサイズ
 
@@ -71,11 +71,15 @@ def drawNumbers(img, colors, size, line_num, line_mat, layer):
     for i in range(0, line_num):
         p = line_mat[i]
         #print "p=", p
-        num = str(i+1)
+        num = i+1
+        if num < 100:
+            font = gd.gdFontLarge
+        else:
+            font = gd.gdFontSmall
         if p[2] == layer:
-            img.string( gd.gdFontLarge, xy(p[0],p[1]), num, cblack )
+            img.string( font, xy(p[0],p[1]), str(num), cblack )
         if p[5] == layer:
-            img.string( gd.gdFontLarge, xy(p[3],p[4]), num, cblack )
+            img.string( font, xy(p[3],p[4]), str(num), cblack )
 
 def drawViaNumbers(img, colors, size, via_mat, via_dic, drawlayer):
     via_num = len(via_dic)
@@ -148,27 +152,20 @@ def drawLines(img, colors, size, xmat):
                 
         
 def draw(q, a, nlc):
-    an = 0
     images = []
     for i in range(0, len(a)):
         mat = a[i]
         if mat.sum() == 0: # ログファイルを読み込んだとき、ゼロ行列がついてくるので、それを除外する
             continue
         xmat = nlc.extend_matrix(mat)
-        #print "xmat.shape=", xmat.shape
-        #print "xmat=", xmat
         for j in range(1, xmat.shape[0]-1):
             # Z軸方向でループ。0番とラストは、extendしたカラッポの層
-            #print "j=%d\n" % j, xmat[j]
             img, colors = newImage(q[0])
             drawGrid(img, colors, q[0])
             drawNumbers(img, colors, q[0], q[1], q[2], j)
             drawViaNumbers(img, colors, q[0], q[3], q[4], j)
             drawLines(img, colors, q[0], xmat[j])
-            #file = "nldraw.%d.gif" % an
-            #img.writeGif(file)
             images.append(img)
-            an += 1
     return images
 
 def main():

@@ -290,6 +290,25 @@ class NLCheck:
         xmat[1:(mat.shape[0]+1):1, 1:(mat.shape[1]+1):1, 1:(mat.shape[2]+1):1] = mat
         return xmat
 
+    def neighbors_Eq(self, xmat, x, y, z):
+        """
+        East,North,West,South,Upper,Lowerの6つの隣接マスの数字が等しいか調べる
+        @param x,y,z 注目点の座標(xmatの座標系ではなくて、元の座標系)
+        """
+        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
+        y1 = 1 + y
+        num = xmat[z,y1,x1] # 注目点の数字
+        eastEq     = 1 if (xmat[z,   y1,  x1+1] == num) else 0
+        northEq    = 1 if (xmat[z,   y1-1,x1  ] == num) else 0
+        westEq     = 1 if (xmat[z,   y1,  x1-1] == num) else 0
+        southEq    = 1 if (xmat[z,   y1+1,x1  ] == num) else 0
+        if VERSION == VER_2017: # ADC2017では３次元に拡張
+            upperEq    = 1 if (xmat[z+1, y1  ,x1  ] == num) else 0
+            lowerEq    = 1 if (xmat[z-1, y1  ,x1  ] == num) else 0
+        else: # 上下の層は、無視する
+            upperEq = 0
+            lowerEq = 0
+        return eastEq, northEq, westEq, southEq, upperEq, lowerEq
 
     def is_terminal(self, xmat, x, y, z):
         "線の端点か？"
@@ -313,15 +332,7 @@ class NLCheck:
         # Ｘ□Ｘ
         #   ■
         #
-        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
-        y1 = 1 + y
-        num = xmat[z,y1,x1] # 注目点の数字
-        eastEq     = 1 if (xmat[z,   y1,  x1+1] == num) else 0
-        northEq    = 1 if (xmat[z,   y1-1,x1  ] == num) else 0
-        westEq     = 1 if (xmat[z,   y1,  x1-1] == num) else 0
-        southEq    = 1 if (xmat[z,   y1+1,x1  ] == num) else 0
-        upperEq    = 1 if (xmat[z+1, y1  ,x1  ] == num) else 0
-        lowerEq    = 1 if (xmat[z-1, y1  ,x1  ] == num) else 0
+        eastEq, northEq, westEq, southEq, upperEq, lowerEq = self.neighbors_Eq(xmat, x, y, z)
         if ( 1 == eastEq + northEq + westEq + southEq + upperEq + lowerEq ):
             return True
         else:
@@ -329,15 +340,7 @@ class NLCheck:
 
     def is_alone(self, xmat, x, y, z):
         " 孤立点か？"
-        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
-        y1 = 1 + y
-        num = xmat[z,y1,x1] # 注目点の数字
-        eastEq     = 1 if (xmat[z,   y1,  x1+1] == num) else 0
-        northEq    = 1 if (xmat[z,   y1-1,x1  ] == num) else 0
-        westEq     = 1 if (xmat[z,   y1,  x1-1] == num) else 0
-        southEq    = 1 if (xmat[z,   y1+1,x1  ] == num) else 0
-        upperEq    = 1 if (xmat[z+1, y1  ,x1  ] == num) else 0
-        lowerEq    = 1 if (xmat[z-1, y1  ,x1  ] == num) else 0
+        eastEq, northEq, westEq, southEq, upperEq, lowerEq = self.neighbors_Eq(xmat, x, y, z)
         if ( 0 == eastEq + northEq + westEq + southEq + upperEq + lowerEq ):
             return True
         else:
@@ -361,15 +364,7 @@ class NLCheck:
         # ■□■
         #   ■
         #
-        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
-        y1 = 1 + y
-        num = xmat[z,y1,x1] # 注目点の数字
-        eastEq     = 1 if (xmat[z,   y1,  x1+1] == num) else 0
-        northEq    = 1 if (xmat[z,   y1-1,x1  ] == num) else 0
-        westEq     = 1 if (xmat[z,   y1,  x1-1] == num) else 0
-        southEq    = 1 if (xmat[z,   y1+1,x1  ] == num) else 0
-        upperEq    = 1 if (xmat[z+1, y1  ,x1  ] == num) else 0
-        lowerEq    = 1 if (xmat[z-1, y1  ,x1  ] == num) else 0
+        eastEq, northEq, westEq, southEq, upperEq, lowerEq = self.neighbors_Eq(xmat, x, y, z)
         if ( 3 <= eastEq + northEq + westEq + southEq + upperEq + lowerEq ):
             return True
         else:
@@ -393,15 +388,7 @@ class NLCheck:
         #   □■
         #   ■
         #
-        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
-        y1 = 1 + y
-        num = xmat[z, y1,x1] # 注目点の数字
-        eastEq     = 1 if (xmat[z,   y1,  x1+1] == num) else 0
-        northEq    = 1 if (xmat[z,   y1-1,x1  ] == num) else 0
-        westEq     = 1 if (xmat[z,   y1,  x1-1] == num) else 0
-        southEq    = 1 if (xmat[z,   y1+1,x1  ] == num) else 0
-        upperEq    = 1 if (xmat[z+1, y1  ,x1  ] == num) else 0
-        lowerEq    = 1 if (xmat[z-1, y1  ,x1  ] == num) else 0
+        eastEq, northEq, westEq, southEq, upperEq, lowerEq = self.neighbors_Eq(xmat, x, y, z)
         # 以下の判定では、枝分かれ個所も、折れ曲がりだと見なしている。枝分かれは不正解なので、このままでOK
         if (((eastEq or westEq) and (northEq or southEq)) or
             ((upperEq or lowerEq) and (eastEq or northEq or westEq or southEq))):

@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 #
-# アルゴリズムデザインコンテスト 2015 -> 2016
-#
-# Web部分
-#
-# 一応、RESTful Web APIのつもり
-#
 # Copyright (C) 2015 Fujitsu
+# Copyright (C) 2017 DA Symposium
+
+"""
+アルゴリズムデザインコンテスト 2015 -> 2016
+
+Web部分
+
+一応、RESTful Web APIのつもり
+"""
 
 from flask import Flask, request, redirect, session, escape, url_for, json, make_response, render_template, g, Markup
 import adcconfig

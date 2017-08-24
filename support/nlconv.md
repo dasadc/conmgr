@@ -2,14 +2,30 @@
 
 `nlconv.py`は、問題データ生成ツールです。  
 Perlで記述された`nlconv.pl`を、Pythonに移植しました。使い方は、Perl版とほぼ同様です。  
-DAシンポジウム2017アルゴリズムのルールに対応しています。
+DAシンポジウム2017のアルゴリズムデザインコンテストのルールに対応しています。
 
 
 ## 必要なライブラリ
 
 openpyxlが必要です。
 
-    pip install openpyxl
+### インストール方法の例
+
+Ubuntuで、パッケージでインストールする場合
+
+    sudo apt-get install python-openpyxl
+
+pipを使って、./libにインストールする場合
+
+    pip install -r requirements.txt -t ./lib
+
+#### トラブルシューティング
+
+1. pipコマンドが無い  
+Ubuntuなら、`sudo apt-get install python-pip`でインストールできる。
+2. Ubuntuで、`raise DistutilsOptionError("can't combine user with prefix, "`といったエラーが出る  
+気持ち悪いが、`sudo pip install --upgrade pip`で、とりあえず直る。
+
 
 ## 実行例
 

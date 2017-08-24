@@ -1,19 +1,32 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# $Rev: 24 $
 # ナンバーリンクの回答チェック・プログラム
-#     for アルゴリズムデザインコンテスト in DAシンポジウム2014
+#     for アルゴリズムデザインコンテスト in DAシンポジウム2014-2017
 #
-# 書式: nlcheck.py --input FILE1 --target FILE2
+# 書式: nlcheck.py [--help] --input FILE1 --target FILE2
 #
 # 引数:
-#       --input FILE1  : 問題ファイル
-#       --target FILE2 : 回答ファイル
-#       --verbose
-#       --debug
+#       -h|--help
+#       -d|--debug
+#       -v|--verbose
+#       -i|--input FILE1  : 問題ファイル(入力)
+#       -t|--target FILE2 : 回答ファイル(入力)
+#       -c|--clean FILE3  : 最短経路で線を引き直した回答ファイル(出力)
+#       -p|--png FILE4    : 回答のグラフィックデータファイル(出力、PNG形式)
+#       -g|--gif FILE5    : 回答のグラフィックデータファイル(出力、GIF形式)
 #
 # 実行例:
+#      % nlcheck.py --input Q1.txt --target A1.txt 
+#      judge =  [True, 0.0070921985815602835]
+#
+#      % nlcheck.py --input Q1.txt --target A1_ng.txt
+#      check_5: found disjoint line(s)
+#      judge =  [False, 0.0]
+#
+#      Trueなら正解、Falseなら不正解。
+#      数値は解の品質の値(不正解の場合0.0)
+#
 #      % ./nlcheck.py --input NL_Q04.txt --target NL_R04.txt 
 #      judges =  [True, True, True]
 #
@@ -24,15 +37,18 @@
 #      Trueなら正解、Falseなら不正解。
 #
 # 解説:
-#      このプログラムを実行するためには、PythonとNumPyが必要です。
-#      PythonとNumPyのインストール方法は、ネット検索してみてください。
-#
 #      ナンバーリンクパズルのルールにしたがって、正解かチェックしています。
 #      詳細は、コード中のコメントをご覧下さい。
+#
+#      このプログラムを実行するためには、PythonとNumPyが必要です。
+#      また、回答のグラフィックファイルを出力するにはpython-gdが必要です。
+#      Python、NumPy、python-gdのインストール方法は、ネット検索してみて
+#      ください。
 #
 #
 #
 # Copyright (c) 2014 DA Symposium 2014
+# Copyright (c) 2017 DA Symposium 2017
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -65,11 +81,17 @@ import re
 import io
 from os.path import basename
 
+VER_2014="ADC2014"
+VER_2015="ADC2015"
 VER_2016="ADC2016"
-VERSION=VER_2016
+VER_2017="ADC2017"
+VERSION=VER_2017
 
 LINE_TERMINAL_MAX=9999 # ADC2016 restriction
 LAYER_MAX=9999         # ADC2016 restriction
+XSIZE_MAX=36
+YSIZE_MAX=36
+
 if VERSION == VER_2016:
     """ ADC2016 constraints
     C2016_1. 問題フォーマットにて、各LINEの端点は2個（分岐しない）
@@ -87,6 +109,20 @@ if VERSION == VER_2016:
     LINE_TERMINAL_MAX=2 # ADC2016 restriction
     " C2016_10. 問題フォーマットにて、層数は最大で8"
     LAYER_MAX=8         # ADC2016 restriction
+
+if VERSION == VER_2017:
+    """ ADC2017 constraints
+    C2017_1. 問題フォーマットにて、盤面平面のサイズは最大で72X72
+    C2017_2. 問題フォーマットにて、層数は最大で8
+    C2017_3. 問題フォーマットにて、各LINEの端点は2個（分岐しない）
+    """
+    " C2017_1. 問題フォーマットにて、盤面平面のサイズは最大で72X72"
+    XSIZE_MAX=72
+    YSIZE_MAX=72
+    " C2017_2. 問題フォーマットにて、層数は最大で8"
+    LAYER_MAX=8
+    " C2017_3. 問題フォーマットにて、各LINEの端点は2個（分岐しない）"
+    LINE_TERMINAL_MAX=2
 
 class NLCheck:
     "アルゴリズムデザインコンテスト（ナンバーリンクパズル）の回答チェック"
@@ -106,8 +142,6 @@ class NLCheck:
         with open(file, "rU") as f:
             s = f.read()
             return self.read_input_str(s)
-        #str = open(file).read()
-        #return self.read_input_str(str)
 
 
     def read_input_str(self, str):
@@ -137,18 +171,14 @@ class NLCheck:
         pSIZE = re.compile('SIZE +([0-9]+)X([0-9]+)', re.IGNORECASE)
         pLINE_NUM = re.compile('LINE_NUM +([0-9]+)', re.IGNORECASE)
         pLINE = re.compile('LINE#(\d+) +\((\d+),(\d+)\)-\((\d+),(\d+)\)', re.IGNORECASE)
-        first = True
 
         pSIZE3D = re.compile('SIZE +([0-9]+)X([0-9]+)X([0-9]+)', re.IGNORECASE)
-
-        #pLINE3D = re.compile('LINE#(\d+) +\((\d+),(\d+),(\d+)\)[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
         pLINE3D_name = re.compile('LINE#(\d+) +\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
         pLINE3D_pos  = re.compile('[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE)
 
         via_number = 1
         pVIA3D_name = re.compile('VIA#([a-z]+) +(\((\d+),(\d+),(\d+)\))+', re.IGNORECASE) # use match
         pVIA3D_pos  = re.compile('[- ]\((\d+),(\d+),(\d+)\)', re.IGNORECASE) # use finditer
-
         via_dic = dict()
 
         while True:
@@ -160,16 +190,18 @@ class NLCheck:
 
             m = pSIZE3D.match(line)
             if m is not None:
-                #size = (int(m.group(1)), int(m.group(2)))
                 sizex, sizey, sizez = m.groups()
                 size = (int(sizex), int(sizey), int(sizez))
+                sizex, sizey, sizez = size
+                assert(1 <= sizex <= XSIZE_MAX)
+                assert(1 <= sizey <= YSIZE_MAX)
+                assert(1 <= sizez <= LAYER_MAX)
                 layer_num = int(sizez)
                 if self.debug: print "#layer=%d, size= %d x %d" % (layer_num, size[0], size[1])
                 continue
 
             m = pSIZE.match(line)
-            l = 0 # default layer number is 0
-            if m is not None:
+            if m is not None: # 2次元のデータ（オリジナルのナンバーリンク）の場合
                 size = (int(m.group(1)), int(m.group(2)), 1)
                 layer_num = 1
                 if self.debug: print "#layer is implicitly set to 1, size= %d x %d" % (size[0], size[1])
@@ -178,8 +210,7 @@ class NLCheck:
             m = pLINE_NUM.match(line)
             if m is not None:
                 line_num = int(m.group(1))
-                # line_num行、4列の行列
-                #line_mat = np.zeros((line_num,4), dtype=np.integer)
+                # line_num行、6列の行列
                 line_mat = np.zeros((line_num,6), dtype=np.integer)
                 via_mat = np.zeros((line_num,3*LAYER_MAX), dtype=np.integer)
                 continue
@@ -207,24 +238,19 @@ class NLCheck:
                 continue
 
             m = pLINE.match(line)
-            if m is not None:
-                #num = int(m.group(1)) # LINE#番号
+            if m is not None: # 2次元のデータ（オリジナルのナンバーリンク）の場合
                 num, sx, sy, ex, ey = m.groups()
-                # layer is implicitly set as 1
-                sz = 1
-                ez = 1
+                layer = 1 # layer is implicitly set as 1
                 num = int(num)
                 if num <= 0 or line_num < num:
                     print "ERROR: LINE# range: ", str(line)
                     break
-                #for i in range(0,4):
-                #    line_mat[num-1, i] = int(m.group(2+i))
                 line_mat[num-1, 0] = int(sx) # 
                 line_mat[num-1, 1] = int(sy) # 
-                line_mat[num-1, 2] = 1       # layer no. of start edge
+                line_mat[num-1, 2] = layer   # layer no. of start edge
                 line_mat[num-1, 3] = int(ex) #
                 line_mat[num-1, 4] = int(ey) #
-                line_mat[num-1, 5] = 1       # layer no. of end edge
+                line_mat[num-1, 5] = layer   # layer no. of end edge
                 continue
 
             m = pVIA3D_name.match(line)
@@ -247,8 +273,6 @@ class NLCheck:
                 via_number += 1
                 continue
             print "WARNING: unknown: ", str(line)
-        #print "size=",size
-        #print "line_num=",line_num
         if self.debug:
             print "@read_input_data: line_mat = "
             print "\tline_mat = "
@@ -266,8 +290,6 @@ class NLCheck:
         with open(file, "rU") as f:
             s = f.read()
             return self.read_target_str(s)
-        #str = open(file).read()
-        #return self.read_target_str(str)
 
 
     def read_target_str(self, str):
@@ -289,7 +311,7 @@ class NLCheck:
         pSIZE = re.compile('SIZE +([0-9]+)X([0-9]+)', re.IGNORECASE)
         pLAYER = re.compile('LAYER +([0-9]+)', re.IGNORECASE)
         pSIZE3D = re.compile('SIZE +([0-9]+)X([0-9]+)X([0-9]+)', re.IGNORECASE)
-        first = True
+
         # "U" universal newline, \n, \r\n, \r
         while True:
             line = f.readline().encode('ascii')
@@ -298,21 +320,16 @@ class NLCheck:
             if line == "":       # 空行 or EOFのとき
                 if mat is not None:
                     results.append(mat) # 解を追加
-                    mat = None
+                    mat = None # ここの処理、バグってないか?copy必要? (ADC2014、複数解ありの場合)
                     line_cnt = 0
                     if self.debug: print ""
                 if eof:
-                    #results.append(mat) # 解を追加
-                    #print "result data = "
-                    #print mat
-                    #mat = None
                     break
                 else:
                     continue
             if self.debug: print "line=|%s|" % str(line)
 
-            # まず SIZE行があるはず
-            # 3D SIZE行があるはず
+            # まず 3D SIZE行があるか、先にチェック。※ 2D SIZE行も部分マッチしてしまうため
             m = pSIZE3D.match(line)
             if m is not None:
                 # 3D SIZE行が現れた
@@ -322,19 +339,14 @@ class NLCheck:
                 size = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
                 if self.debug: print "SIZE 3D = ", size
                 continue
-            #else:
-            #    if size is None:
-            #        # まだSIZE行が現れていない
-            #        print "WARNING: unknown: ", str(line)
-            #        continue
-            # 2D SIZE行かも
+            # 2D SIZE行があるかもしれない
             m = pSIZE.match(line)
             if m is not None:
                 # SIZE行が現れた
                 if size is not None:
                     # ２度め以降のSIZEに対してはWarning
                     print "WARNING: too many SIZE"
-                size = (int(m.group(1)), int(m.group(2)), 1) # Z軸定義が無いとき、１と仮定する
+                size = (int(m.group(1)), int(m.group(2)), 1) # Z軸が定義されていないので、1と仮定する
                 continue
             else:
                 if size is None:
@@ -382,6 +394,25 @@ class NLCheck:
         xmat[1:(mat.shape[0]+1):1, 1:(mat.shape[1]+1):1, 1:(mat.shape[2]+1):1] = mat
         return xmat
 
+    def neighbors_Eq(self, xmat, x, y, z):
+        """
+        East,North,West,South,Upper,Lowerの6つの隣接マスの数字が等しいか調べる
+        @param x,y,z 注目点の座標(xmatの座標系ではなくて、元の座標系)
+        """
+        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
+        y1 = 1 + y
+        num = xmat[z,y1,x1] # 注目点の数字
+        eastEq     = 1 if (xmat[z,   y1,  x1+1] == num) else 0
+        northEq    = 1 if (xmat[z,   y1-1,x1  ] == num) else 0
+        westEq     = 1 if (xmat[z,   y1,  x1-1] == num) else 0
+        southEq    = 1 if (xmat[z,   y1+1,x1  ] == num) else 0
+        if VERSION == VER_2017: # ADC2017では３次元に拡張
+            upperEq    = 1 if (xmat[z+1, y1  ,x1  ] == num) else 0
+            lowerEq    = 1 if (xmat[z-1, y1  ,x1  ] == num) else 0
+        else: # 上下の層は、無視する
+            upperEq = 0
+            lowerEq = 0
+        return eastEq, northEq, westEq, southEq, upperEq, lowerEq
 
     def is_terminal(self, xmat, x, y, z):
         "線の端点か？"
@@ -405,40 +436,16 @@ class NLCheck:
         # Ｘ□Ｘ
         #   ■
         #
-        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
-        y1 = 1 + y
-        num = xmat[z,y1,x1] # 注目点の数字
-        eastEq     = (xmat[z,y1,x1+1] == num)
-        northEq    = (xmat[z,y1-1,x1] == num)
-        westEq     = (xmat[z,y1,x1-1] == num)
-        southEq    = (xmat[z,y1+1,x1] == num)
-        eastNotEq  = (xmat[z,y1,x1+1] != num)
-        northNotEq = (xmat[z,y1-1,x1] != num)
-        westNotEq  = (xmat[z,y1,x1-1] != num)
-        southNotEq = (xmat[z,y1+1,x1] != num)
-        #print "num=%d xpos=(%d,%d)" % (num, x1,y1)
-        #print eastEq,northEq,westEq,southEq
-        #print eastNotEq,northNotEq,westNotEq,southNotEq
-        if ( (eastEq    and northNotEq and westNotEq and southNotEq) or
-             (eastNotEq and northEq    and westNotEq and southNotEq) or
-             (eastNotEq and northNotEq and westEq    and southNotEq) or
-             (eastNotEq and northNotEq and westNotEq and southEq   ) ) :
+        eastEq, northEq, westEq, southEq, upperEq, lowerEq = self.neighbors_Eq(xmat, x, y, z)
+        if ( 1 == eastEq + northEq + westEq + southEq + upperEq + lowerEq ):
             return True
         else:
             return False
 
     def is_alone(self, xmat, x, y, z):
         " 孤立点か？"
-        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
-        y1 = 1 + y
-        num = xmat[z,y1,x1] # 注目点の数字
-        eastNotEq  = (xmat[z,y1,  x1+1] != num)
-        northNotEq = (xmat[z,y1-1,x1  ] != num)
-        westNotEq  = (xmat[z,y1,  x1-1] != num)
-        southNotEq = (xmat[z,y1+1,x1  ] != num)
-        #print "num=%d xpos=(%d,%d)" % (num, x1,y1)
-        #print eastNotEq,northNotEq,westNotEq,southNotEq
-        if (eastNotEq and northNotEq and westNotEq and southNotEq):
+        eastEq, northEq, westEq, southEq, upperEq, lowerEq = self.neighbors_Eq(xmat, x, y, z)
+        if ( 0 == eastEq + northEq + westEq + southEq + upperEq + lowerEq ):
             return True
         else:
             return False
@@ -461,15 +468,8 @@ class NLCheck:
         # ■□■
         #   ■
         #
-        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
-        y1 = 1 + y
-        num = xmat[z,y1,x1] # 注目点の数字
-        eastEq     = 1 if (xmat[z, y1,  x1+1] == num) else 0
-        northEq    = 1 if (xmat[z, y1-1,x1  ] == num) else 0
-        westEq     = 1 if (xmat[z, y1,  x1-1] == num) else 0
-        southEq    = 1 if (xmat[z, y1+1,x1  ] == num) else 0
-        #print "(%d,%d) %d %d %d %d  %d" % (x,y,eastEq,northEq,westEq,southEq,(eastEq + northEq + westEq + southEq))
-        if ( 3 <= eastEq + northEq + westEq + southEq ):
+        eastEq, northEq, westEq, southEq, upperEq, lowerEq = self.neighbors_Eq(xmat, x, y, z)
+        if ( 3 <= eastEq + northEq + westEq + southEq + upperEq + lowerEq ):
             return True
         else:
             return False
@@ -492,27 +492,29 @@ class NLCheck:
         #   □■
         #   ■
         #
-        x1 = 1 + x  # xmatでは、座標が1ずつずれるので
-        y1 = 1 + y
-        num = xmat[z, y1,x1] # 注目点の数字
-        eastEq     = 1 if (xmat[z, y1,  x1+1] == num) else 0
-        northEq    = 1 if (xmat[z, y1-1,x1  ] == num) else 0
-        westEq     = 1 if (xmat[z, y1,  x1-1] == num) else 0
-        southEq    = 1 if (xmat[z, y1+1,x1  ] == num) else 0
-        #print "(%d,%d) %d %d %d %d  %d" % (x,y,eastEq,northEq,westEq,southEq,(eastEq + northEq + westEq + southEq))
+        eastEq, northEq, westEq, southEq, upperEq, lowerEq = self.neighbors_Eq(xmat, x, y, z)
         # 以下の判定では、枝分かれ個所も、折れ曲がりだと見なしている。枝分かれは不正解なので、このままでOK
-        if (eastEq  and northEq or
-            northEq and westEq or
-            westEq  and southEq or
-            southEq and eastEq):
+        if (((eastEq or westEq) and (northEq or southEq)) or
+            ((upperEq or lowerEq) and (eastEq or northEq or westEq or southEq))):
             return True
         else:
             return False
 
 
-    def clearConnectedLine(self, xmat, clear, x1, y1, z, term_set=set()):
+    def clearConnectedLine(self, xmat, clear, x1, y1, z):
         "線を１本消してみる"
-        #print x1,y1
+        num = xmat[z,y1,x1]
+        clear[z,y1,x1] = 0
+        # 線が連続しているなら、消す
+        neighbors = [(z,y1,x1+1), (z,y1-1,x1), (z,y1,x1-1), (z,y1+1,x1),
+                     (z+1,y1,x1), (z-1,y1,x1)]
+        # first check terminal
+        for nz,ny,nx in neighbors:
+            if xmat[nz,ny,nx] == num and clear[nz,ny,nx] != 0:
+                self.clearConnectedLine(xmat, clear, nx,ny,nz) # 再帰
+
+    def clearConnectedLine_OLD(self, xmat, clear, x1, y1, z, term_set=set()):
+        "線を１本消してみる ※term_setは参照されない変数。ここで何をしたかったのか??? (ADC2017)"
         num = xmat[z,y1,x1]
         clear[z,y1,x1] = 0
         # 線が連続しているなら、消す
@@ -536,7 +538,7 @@ class NLCheck:
             clear[z,y1,x1] = 0
 
     def check_filename(self, absinputf, abstargetf):
-        "ファイル名の書式がルール通りかチェック"
+        "ファイル名の書式がルール通りかチェック。ADC2014ルール"
         inputf = basename(absinputf) # ディレクトリ名をとりのぞく
         targetf = basename(abstargetf)
         minp = re.match("(NL_Q)([0-9]+)\.(txt)", inputf, re.IGNORECASE)
@@ -586,10 +588,7 @@ class NLCheck:
         else:
             for line in range(1, line_num+1):
                 (x0,y0,z0,x1,y1,z1) = line_mat[line-1]
-                #print "LINE#%d (%d,%d)-(%d,%d)" % (line,x0,y0,x1,y1)
-                #print "mat=", mat[y0,x0], "mat=", mat[y1,x1]
                 if mat[z0-1,y0,x0] == line and mat[z1-1,y1,x1] == line:
-                    #print "OK"
                     pass
                 else:
                     judge = False
@@ -652,23 +651,24 @@ class NLCheck:
             (x0,y0,z0,x1,y1,z1) = line_mat[line-1]
             # 始点から線をたどって、消していく
             self.clearConnectedLine(xmat, clear, x0+1, y0+1, z0)
-            # 終点から線をたどって、消していく
-            self.clearConnectedLine(xmat, clear, x1+1, y1+1, z1)
-            #print clear[1:clear.shape[0]-1,1:clear.shape[1]-1]
+            if VERSION == VER_2016: # ※ これは、必要な処理か??? viaiterは参照されていない (ADC2017)
+                # 終点から線をたどって、消していく
+                self.clearConnectedLine(xmat, clear, x1+1, y1+1, z1)
+                #print clear[1:clear.shape[0]-1,1:clear.shape[1]-1]
 
-            # C2016_8: 途中層のビア（数字割当後に孤立しているビア）について
-            # ここでは不問とする。正式にチェックするのは
-            # self.check_ans_via_is_terminal_or_alone() にて。
-            for i in range(len(via_dic)):
-                v = via_mat[i]
-                viaiter = 0
-                while viaiter < LAYER_MAX:
-                    vx = v[viaiter*3+0]
-                    vy = v[viaiter*3+1]
-                    vz = v[viaiter*3+2]
-                    if (vx == 0) and (vy == 0) and (vz == 0): break
-                    self.clearIfAlone(xmat, clear, vx+1, vy+1, vz)
-                    viaiter+=1
+                # C2016_8: 途中層のビア（数字割当後に孤立しているビア）について
+                # ここでは不問とする。正式にチェックするのは
+                # self.check_ans_via_is_terminal_or_alone() にて。
+                for i in range(len(via_dic)):
+                    v = via_mat[i]
+                    viaiter = 0
+                    while viaiter < LAYER_MAX:
+                        vx = v[viaiter*3+0]
+                        vy = v[viaiter*3+1]
+                        vz = v[viaiter*3+2]
+                        if (vx == 0) and (vy == 0) and (vz == 0): break
+                        self.clearIfAlone(xmat, clear, vx+1, vy+1, vz)
+                        viaiter+=1
         if clear.sum() == 0:
             # すべて消えた
             judge = True
@@ -680,7 +680,12 @@ class NLCheck:
 
 
     def check_6(self, target_data, judges):
-        "チェック6. 複数解があるときに、同一の解が含まれていたら、２つめ以降は不正解"
+        """
+        チェック6. 複数解があるときに、同一の解が含まれていたら、２つめ以降は不正解。
+        複数解は、ADC2014ルール
+        """
+        if VERSION != VER_2014:
+            return True
         judge = True
         for i in range(0, len(target_data)):
             for j in range(i+1, len(target_data)):
@@ -694,8 +699,10 @@ class NLCheck:
                         print "check_6: same data, %d and %d" % (i,j)
         return judge
 
-    # check via related constraints
     def check_7(self, input_data, xmat):
+        "check via related constraints # ADC2016ルール"
+        if VERSION != VER_2016:
+            return True
         (size, line_num, line_mat, via_mat, via_dic) = input_data
 
         if self.check_via_num(line_num, via_dic) == False:
@@ -907,7 +914,6 @@ class NLCheck:
                     num = mat[z,y,x]
                     if num == 0: continue
                     length[num] += 1
-                    #print "line_length: (%d,%d) #%02d %d" % (x,y,num,length[num])
         if self.verbose: print "length=", ["#%d:%d" % (i, c) for (i, c) in zip(range(nlines+1), length)[1:]] # 線ごとの線長
         return length.sum()
 
@@ -921,7 +927,6 @@ class NLCheck:
                     if num == 0: continue
                     if self.is_corner(xmat, x, y, z) == True:
                         corner[num] += 1
-                        #print "corner: (%d,%d) #%02d %d" % (x,y,num,corner[num])
         if self.verbose: print "corner=", ["#%d:%d" % (i, c) for (i, c) in zip(range(nlines+1), corner)[1:]] # 線ごとの角の数
         return corner.sum()
     
@@ -995,29 +1000,17 @@ class NLCheck:
                
     def clean_a(self, q, a):
         "solverが出力する解が変なので、ちゃちゃっときれいにする"
-        #print "a=\n", a
         import nlclean
         a2 = []
         for ai in a:
-            #print "ai=\n",ai
             mat = ai
             if mat.sum() == 0:
                 print "ERROR: Zero Matrix"
                 continue
             line_mat = q[2]
-            #print "line_mat=\n", line_mat
-            #print "clean_a: mat=", mat.shape
-            #print "clean_a: mat=\n", mat
             xmat = self.extend_matrix(mat)
-            #print "clean_a: xmat=", xmat.shape
-            #print "clean_a: xmat=\n", xmat
-            #print "clean_a: xmat[1]=\n", xmat[1]
             xmat2 = nlclean.clean(line_mat, xmat[1]) # z=1だけ
-            #print "xmat2=\n", xmat2
-            #print (xmat==xmat2)
             xmat3 = nlclean.short_cut(line_mat, xmat2)
-            #print "clean_a: xmat3=\n", xmat3
-            #xmat3 = xmat2
             # xmatをmatに戻す。周囲を1だけ削る
             xmat4 = np.zeros(mat.shape, xmat3.dtype) # Z軸の次元を増やす
             xmat4[0] = xmat3[1:-1, 1:-1]
@@ -1034,7 +1027,7 @@ class NLCheck:
             zz,yy,xx = ai.shape
             if firsttime:
                 firsttime = False
-                out = "SIZE %dX%d" % (xx, yy) + crlf
+                out = "SIZE %dX%dX%d" % (xx, yy, zz) + crlf
             for y in range(0, yy):
                 for x in range(0, xx):
                     out += "%02d" % ai[0,y,x]
@@ -1045,86 +1038,59 @@ class NLCheck:
             out += crlf
         return out
 
-    def graphic_png(self, q, a, filename):
-        "回答データをグラフィックとして描画"
-        import nldraw
-        images = nldraw.draw(q, a, self)
-        base = re.sub("\.png", "", filename)
-        num = 0
+    def output_image_file(self, q, a, filename, format='png'):
+        """
+        回答データをグラフィックとして描画して、ファイルに保存する。
+
+        @param format 'png'か'gif'を指定する。
+        """
+        import nldraw2
+        images = nldraw2.draw(q, a, self)
+        bfile = os.path.basename(qfile)
+        bfile = os.path.splitext(bfile)[0] # 拡張子をトル
         res = []
-        for img in images:
-            file = "%s.%d.png" % (base, num)
-            img.writePng(file)
-            #print file
-            res.append(file)
-            num += 1
+        for num, img in enumerate(images):
+            ifile = "%s.%d.%s" % (bfile, num+1, format) # 層の番号は1から始まるので+1
+            img.save(ifile, format)
+            #print(ifile)
+            res.append(ifile)
         return res
         
-    def graphic_gif(self, q, a, filename):
-        "回答データをグラフィックとして描画"
-        import nldraw
-        images = nldraw.draw(q, a, self)
-        base = re.sub("\.gif", "", filename)
-        num = 0
-        res = []
-        for img in images:
-            file = "%s.%d.gif" % (base, num)
-            img.writeGif(file)
-            #print file
-            res.append(file)
-            num += 1
-        return res
-    
-    def usage(self):
-        print "usage:",sys.argv[0],
-        print """
--h|--help
--d|--debug
--v|--verbose
--i|--input=FILE
--t|--target=FILE
--c|--clean=FILE
--p|--png=FILE
--g|--gif=FILE
-"""
-
+        
     def main(self):
-        try:
-            opts, args = getopt.getopt(sys.argv[1:], "hdvi:t:c:p:g:", ["help","debug","verbose","input=","target=","clean=","png=","gif="])
-        except getopt.GetoptError:
-            self.usage()
-            sys.exit(2)
+        import argparse
+        parser = argparse.ArgumentParser(description='NumberLink check tool')
+        parser.add_argument('-d', '--debug', action='store_true', help='set debug level')
+        parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
+        parser.add_argument('-i', '--input', nargs=1, metavar='FILE', help='Q file')
+        parser.add_argument('-t', '--target', nargs=1, metavar='FILE', help='A file')
+        parser.add_argument('-c', '--clean', nargs=1, metavar='FILE', help='output cleaned A file')
+        parser.add_argument('-p', '--png', nargs=1, metavar='FILE', help='output PNG image file')
+        parser.add_argument('-g', '--gif', nargs=1, metavar='FILE', help='output GIF image file')
+        parser.add_argument('-r', '--rule', choices=[VER_2014, VER_2015, VER_2016, VER_2017], default=VERSION, help='specify ADC rule (default: %(default)s)')
+
         input_data  = None  # 問題データ
         target_data = None  # チェック対象とする解答データ
         input_file = None
         target_file = None
         clean = None
-        gif = None
-        png = None
-        for o,a in opts:
-            if o in ("-h","--help"):
-                self.usage()
-                sys.exit()
-            elif o in ("-d","--debug"):
-                self.debug = True 
-            elif o in ("-v","--verbose"):
-                self.verbose = True
-            elif o in ("-i","--input"):
-                input_file = a
-            elif o in ("-t","--target"):
-                target_file = a
-            elif o in ("-c", "--clean"):
-                clean = a
-            elif o in ("-p", "--png"):
-                png = a
-            elif o in ("-g", "--gif"):
-                gif = a
-        if input_file :
+
+        args = parser.parse_args()
+        if args.debug:
+            self.debug = True
+        if args.verbose:
+            self.verbose = True
+        if args.input:
+            input_file = args.input[0]
             input_data = self.read_input_file(input_file)
             if self.verbose: print "input=", input_data
-        if target_file:
+        if args.target:
+            target_file = args.target[0]
             target_data = self.read_target_file(target_file)
             if self.verbose: print "target=\n", target_data
+        if args.clean:
+            clean = args.clean[0]
+
         if input_data is not None and target_data is not None:
             if clean is not None:
                 target_data = self.clean_a(input_data, target_data)
@@ -1133,21 +1099,20 @@ class NLCheck:
                     f.write(atext)
             judges = self.check( input_data, target_data )
             print "judges = ", judges
-            if gif is not None:
-                self.graphic_gif(input_data, target_data, gif)
-            if png is not None:
-                self.graphic_png(input_data, target_data, png)
+            if args.png:
+                self.output_image_file(input_data, target_data, args.png[0], format='png')
+            if args.gif:
+                self.output_image_file(input_data, target_data, args.gif[0], format='gif')
+        
         if input_file is not None and target_file is not None:
-            self.check_filename(input_file, target_file)
-
+            # ファイル名チェックは、2014年までのルール
+            if VERSION == VER_2014:
+                self.check_filename(input_file, target_file)
 
 
 if __name__ == "__main__":
     o = NLCheck()
     o.main()
-    #o.check_filename("NL_Q04.txt", "NL_R04.txt")
-    #o.check_filename("NL_Q04.txt", "T09_A04.txt")
-    #o.check_filename("nl_q04.txt", "t09_a04.txt")
 
 
 # Local Variables:
