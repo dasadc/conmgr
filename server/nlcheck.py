@@ -986,7 +986,7 @@ class NLCheck:
                 if self.verbose: print "check_7", r7
             #
             res = r1 and r2 and r3 and r4 and r5 and r7
-            print "res=",res
+            #print "res=",res
             if res:
                 q = self.quality(input_data, mat, xmat)
             else:

@@ -29,6 +29,8 @@ blue = (0,0,255)
 green = (0,128,0)
 gray = (200,200,200)
 lightgray = (240,240,240)
+col_upstairs = (0,128,0)
+col_downstairs = (255,64,192)
 
 # TrueTypeフォントファイル, font
 ttf_font = './Ricty-Regular.ttf'
@@ -190,7 +192,7 @@ def drawTextInCell(d, xy, text, fill, font, shadow=False):
     d.text(xy=[tx,ty], text=text, fill=fill, font=font)
     
     
-def drawLines(d, size, xmat, numberPos=[]):
+def drawLines(d, size, xmat, layer=None, numberPos=[]):
     """
     線を描く
 
@@ -213,14 +215,14 @@ def drawLines(d, size, xmat, numberPos=[]):
             cx = x0 + unit/2
             cy = y0 + unit/2
             try:
-                num = xmat[y1,x1]
+                num = xmat[layer,y1,x1]
             except IndexError as e:
                 print("IndexError:", e)
                 num = -1
             if num == 0:
                 d.rectangle(xy=[(x0,y0),(x0+unit,y0+unit)], fill=gray) # 空白マス
                 continue
-            n,e,w,s = is_connected(xmat, x, y) # x,yでOK
+            n,e,w,s = is_connected(xmat[layer], x, y) # x,yでOK
             if n:
                 d.line(xy=[(cx,cy),(cx,y0)], fill=black)
             if e:
@@ -230,13 +232,19 @@ def drawLines(d, size, xmat, numberPos=[]):
             if s:
                 d.line(xy=[(cx,cy),(cx,y0+unit)], fill=black)
             inews = int(n)+int(e)+int(w)+int(s)
-            if inews == 0: # 層を貫通するだけのビア
-                d.arc(xy=[(x0,y0), (x0+unit-1,y0+unit-1)], start=0, end=360, fill=black)
-                drawTextInCell(d, [x0,y0], str(num), red, font_small, shadow=True)
-            elif inews == 1:
-                if not is_number_cell(x, y, numberPos):
+            if is_number_cell(x, y, numberPos): # 始点or終点は、何もしなくてよい
+                pass
+            else:
+                if inews == 0: # 層を貫通するだけのビア
                     d.arc(xy=[(x0,y0), (x0+unit-1,y0+unit-1)], start=0, end=360, fill=black)
-                    drawTextInCell(d, [x0,y0], str(num), green, font_small, shadow=True)
+                    drawTextInCell(d, [x0,y0], str(num), red, font_small, shadow=True)
+                elif inews == 1:
+                    if xmat[layer+1, y1, x1] == num:
+                        color = col_upstairs
+                    else:
+                        color = col_downstairs
+                    d.arc(xy=[(x0,y0), (x0+unit-1,y0+unit-1)], start=0, end=360, fill=black)
+                    drawTextInCell(d, [x0,y0], str(num), color, font_small, shadow=True)
 
 def draw(q, a, nlc):
     "ナンバーリンクの盤面を描く"
@@ -256,7 +264,7 @@ def draw(q, a, nlc):
             drawGrid(d, q[0])
             #drawNumbers(d, q[0], q[1], q[2], j)
             drawViaName(d, q[0], q[3], q[4], j)
-            drawLines(d, q[0], xmat[j], numberPos=numberPos)
+            drawLines(d, q[0], xmat, layer=j, numberPos=numberPos)
             drawNumbers(d, q[0], q[1], q[2], j)
             images.append(img)
     return images
