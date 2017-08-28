@@ -13,9 +13,13 @@ from __future__ import print_function
 import numpy as np
 import random
 import sys
+import os
 sys.path.insert(0, '../server') # あとで直す
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), './lib')))
 from nlcheck import NLCheck
 import nldraw2
+import openpyxl
+from openpyxl import Workbook
 
 _size = (3,3,1) # x,y,z
 size = None
@@ -81,7 +85,7 @@ class Ban:
         return (zyx1[2]-1, zyx1[1]-1, zyx1[0]-1)
     
     def find_zero_random(self, dont_use=[]):
-        "値が0の座標を、ランダムに返す"
+        "値が0の座標を、ランダムに返す。リストdont_useに含まれる座標は、選ばない。"
         cand = []
         for k1, v in np.ndenumerate(self.xmat):
             if self.inside_zyx1(k1):
@@ -135,6 +139,7 @@ class Ban:
         return len(indexes[0])
         
     def neighbors(self, xyz):
+        "セルxyzの隣接セルの数値を取り出す"
         x, y, z = xyz
         return dotdict({ 'n': self.get(x,   y-1, z),     # north
                          'e': self.get(x+1, y,   z),     # east
@@ -143,6 +148,7 @@ class Ban:
                          'u': self.get(x,   y,   z+1),   # upstairs
                          'd': self.get(x,   y,   z-1)})  # downstairs
     def A_data(self):
+        "回答テキストを作る"
         out = 'SIZE %dX%dX%d%s' % (self.size.x, self.size.y, self.size.z, newline)
         for z in range(0, self.size.z):
             out += 'LAYER %d%s' % (z+1, newline)
@@ -170,7 +176,9 @@ def vector_char(a, b):
 
 def draw_line_next(ban, number=0, prev=None, curr=None):
     """
-    1マスだけ、線を引く。
+    直前に引いた線は、prevからcurrだったとき、
+    セルcurrから、セルnext_xyzへ、1マスだけ、線を引く。
+    next_xyzは、ランダムに決定する。
     #
     #     prev   curr   next_xyz
     #      ●     ●     ○
@@ -193,9 +201,9 @@ def draw_line_next(ban, number=0, prev=None, curr=None):
         if debug: print('curr=', curr, '  vec_char=', vec_char, '  next_xyz=', next_xyz)
         drawable = True
         if not ban.inside(next_xyz):
-            drawable = False
+            drawable = False # 盤からはみ出た
         elif ban.get_xyz(next_xyz) != 0:
-            drawable = False
+            drawable = False # すでに線が引かれている
         else:
             # next_xyzの隣接セルで、番号がnumberのセルの個数を数える
             next_neigh = ban.neighbors(next_xyz)
@@ -224,11 +232,14 @@ def draw_line_next(ban, number=0, prev=None, curr=None):
 
 
 def draw_line(ban, number, max_retry=1, dont_use=[], Q_data={}):
+    """
+    線numberを、ランダムに引いてみる。
+    """
     trial = 0
     if debug: print('number=', number)
     while trial < max_retry:
         trial += 1
-        #print('dnot_use=', dont_use)
+        #print('dont_use=', dont_use)
         start = ban.find_zero_random(dont_use) # 始点をランダムに決定
         end = None
         if debug: print('start=', start)
@@ -267,6 +278,10 @@ def draw_line(ban, number, max_retry=1, dont_use=[], Q_data={}):
     return False
 
 def generate(x,y,z, num_lines=0, max_retry=1, Q_data={}, dont_use=[]):
+    """
+    盤サイズ(x,y,z)のときの、解答データと問題データを、ランダムに生成する。
+    線の本数は、最大でnum_linesまでとする。
+    """
     ban = Ban(x,y,z)
     for line in range(1, 1+num_lines):
         if draw_line(ban, line, max_retry=max_retry, dont_use=dont_use, Q_data=Q_data) == False:
@@ -274,6 +289,7 @@ def generate(x,y,z, num_lines=0, max_retry=1, Q_data={}, dont_use=[]):
     return num_lines, ban
 
 def Q_text(Q_data):
+    "問題データのテキストを生成する。"
     size = Q_data['size']
     out = 'SIZE %dX%dX%d%s' % (size[0], size[1], size[2], newline)
     num_lines = Q_data['line_num']
@@ -283,6 +299,52 @@ def Q_text(Q_data):
         e = Q_data[j]['end']
         out += 'LINE#%d (%d,%d,%d) (%d,%d,%d)%s' % (j, s[0],s[1],s[2]+1, e[0],e[1],e[2]+1, newline)
     return out
+
+def excel(ban, basename):
+    "Excelファイル(.xlsx)に書き出す。"
+    wb = Workbook()
+    bgYellow = openpyxl.styles.PatternFill(patternType='solid', fgColor='FFFFFF00')
+    bgIndex = openpyxl.styles.PatternFill(patternType='solid', fgColor='FFBBFFF6')
+    size = ban.get_size()
+    for z in range(0, size.z):
+        if z == 0:
+            wsl = wb.active
+        else:
+            wsl = wb.create_sheet()
+        wsl.title = '%s.%d' % (basename, z+1)
+        wsl['B1'] = u'行'
+        wsl['B2'] = u'列'
+        wsl['C1'] = 'A'
+        wsl['E1'] = ' / '
+        wsl['G1'] = u'層'
+        for cell in ['A1', 'A2', 'C1', 'D1', 'F1']:
+            wsl[cell].fill = bgYellow
+        wsl['A1'].value = size.x
+        wsl['A2'].value = size.y
+        wsl['D1'].value = z+1
+        wsl['F1'].value = size.z
+        for y in range(0, size.y):
+            for x in range(0, size.x):
+                num = ban.get_xyz((x,y,z))
+                wsl.cell(row=4+y, column=2+x).value = num
+        # Y座標
+        i = 0
+        for y in range(4, 4+size.y):
+            wsl.cell(row=y, column=1).value = i
+            wsl.cell(row=y, column=1).fill = bgIndex
+            i += 1
+        # X座標
+        i = 0
+        for x in range(2, 2+size.x):
+            wsl.cell(row=3, column=x).value = i
+            wsl.cell(row=3, column=x).fill = bgIndex
+            i += 1
+        # 列の幅
+        for x in range(1, 1+size.x+1):
+            wsl.column_dimensions[openpyxl.utils.get_column_letter(x)].width = 3.5
+    wb.save(filename=basename+'.xlsx')
+
+    
 
 def run(x,y,z, num_lines=0, max_retry=1, basename=None):
     """
@@ -331,6 +393,7 @@ def run(x,y,z, num_lines=0, max_retry=1, basename=None):
         afile = '%s_adc_sol.txt' % basename
         with open(afile, 'w') as f:
             f.write(txtA)
+        excel(ban, basename)
     
 
 def test1():
