@@ -79,7 +79,7 @@ import sys
 import getopt
 import re
 import io
-from os.path import basename
+import os
 
 VER_2014="ADC2014"
 VER_2015="ADC2015"
@@ -539,8 +539,8 @@ class NLCheck:
 
     def check_filename(self, absinputf, abstargetf):
         "ファイル名の書式がルール通りかチェック。ADC2014ルール"
-        inputf = basename(absinputf) # ディレクトリ名をとりのぞく
-        targetf = basename(abstargetf)
+        inputf = os.path.basename(absinputf) # ディレクトリ名をとりのぞく
+        targetf = os.path.basename(abstargetf)
         minp = re.match("(NL_Q)([0-9]+)\.(txt)", inputf, re.IGNORECASE)
         mtgt = re.match("(T)([0-9]+)(_A)([0-9]+)\.(txt)", targetf, re.IGNORECASE)
         qinp = None
@@ -1000,6 +1000,20 @@ class NLCheck:
                
     def clean_a(self, q, a):
         "solverが出力する解が変なので、ちゃちゃっときれいにする"
+        if VERSION == VER_2017:
+            import nlclean2017 as nlclean
+            mat = a[0]
+            if mat.sum() == 0:
+                print "ERROR: Zero Matrix"
+            else:
+                line_mat = q[2]
+                xmat = self.extend_matrix(mat)
+                xmat2 = nlclean.clean(line_mat, xmat)
+                xmat3 = nlclean.short_cut(line_mat, xmat2)
+                mat = xmat3[1:(mat.shape[0]+1):1, 1:(mat.shape[1]+1):1, 1:(mat.shape[2]+1):1]
+            return [mat] # 一応
+
+        # 2016年までのルール
         import nlclean
         a2 = []
         for ai in a:
@@ -1023,6 +1037,21 @@ class NLCheck:
         crlf = "\r\n" # DOSの改行コード
         firsttime = True
         out = None
+        if VERSION == VER_2017:
+            a2 = a2[0]
+            zz,yy,xx = a2.shape
+            out = "SIZE %dX%dX%d" % (xx, yy, zz) + crlf
+            for z in range(0, zz):
+                out += "LAYER %d" % (z + 1) + crlf
+                for y in range(0, yy):
+                    for x in range(0, xx):
+                        out += "%02d" % a2[z,y,x]
+                        if x == xx-1:
+                            out += crlf
+                        else:
+                            out += ","
+            return out
+        
         for ai in a2:
             zz,yy,xx = ai.shape
             if firsttime:
@@ -1045,8 +1074,9 @@ class NLCheck:
         @param format 'png'か'gif'を指定する。
         """
         import nldraw2
+        nldraw2.setup_font('default')
         images = nldraw2.draw(q, a, self)
-        bfile = os.path.basename(qfile)
+        bfile = os.path.basename(filename)
         bfile = os.path.splitext(bfile)[0] # 拡張子をトル
         res = []
         for num, img in enumerate(images):

@@ -191,6 +191,9 @@ def update_Q_data(q_num, text, author="DASymposium", year=DEFAULT_YEAR):
     else:
         num = 1
         res.text = text2
+        res.rows = size[1]
+        res.cols = size[0]
+        res.linenum = line_num
         res.put()
     return (True, num, size, line_num)
 

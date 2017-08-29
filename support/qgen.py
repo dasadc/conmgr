@@ -14,7 +14,7 @@ import numpy as np
 import random
 import sys
 import os
-sys.path.insert(0, '../server') # あとで直す
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../server')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), './lib')))
 from nlcheck import NLCheck
 import nldraw2
