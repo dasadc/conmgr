@@ -327,8 +327,14 @@ def menu_post_A(username):
 
 def post_A(username, atext, form):
     anum = (int)(form['anum'])
-    cpu_sec = (float)(form['cpu_sec'])
-    mem_byte = (int)(form['mem_byte'])
+    cpu_sec = 0
+    mem_byte = 0
+    try:
+        cpu_sec = (float)(form['cpu_sec'])
+        mem_byte = (int)(form['mem_byte'])
+    except ValueError:
+        # (float)'' がエラー
+        pass
     misc_text = form['misc_text']
     print "A%d\n%f\n%d\n%s" % (anum, cpu_sec, mem_byte, misc_text.encode('utf-8'))
     return put_A_data(anum, username, atext, cpu_sec, mem_byte, misc_text)
