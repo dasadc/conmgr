@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head><title>ADC post answer</title></head>
+  <body>
+    <form action="{{ url }}" method="post" enctype="multipart/form-data">
+    <dl>
+      <dt>A number:
+      <dd><input type=text name="anum">
+      <dt>A file:
+      <dd><input type=file name="afile">
+      <dt>cpu_sec:
+      <dd><input type=text name="cpu_sec">
+      <dt>mem_byte:
+      <dd><input type=text name="mem_byte">
+      <dt>misc_text:
+      <dd><input type=text name="misc_text">
+      <dd><input type=submit value=post>
+    </dl>
+    </form>
+  </body>
+</html>
