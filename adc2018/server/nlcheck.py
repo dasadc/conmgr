@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # ナンバーリンクの回答チェック・プログラム
-#     for アルゴリズムデザインコンテスト in DAシンポジウム2017
+#     for アルゴリズムデザインコンテスト in DAシンポジウム2018
 #
 # 書式: nlcheck.py --input FILE1 --target FILE2
 #
@@ -38,7 +38,7 @@
 #
 #
 #
-# Copyright (c) 2017 DA Symposium 2017
+# Copyright (c) 2018 DA Symposium 2018
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -71,18 +71,21 @@ import re
 import io
 from os.path import basename
 
-""" ADC2017 constraints
-C2017_1. 問題フォーマットにて、盤面平面のサイズは最大で72X72
-C2017_2. 問題フォーマットにて、層数は最大で8
-C2017_3. 問題フォーマットにて、各LINEの端点は2個（分岐しない）
+""" ADC2018 constraints
+C2018_1. 問題フォーマットにて、盤面平面のサイズは最大で72X72
+C2018_2. 問題フォーマットにて、層数は最大で8
+C2018_3. 問題フォーマットにて、各LINEの端点は2個（分岐しない）
+C2018_4. 隣接配線境界数係数
 """
-" C2017_1. 問題フォーマットにて、盤面平面のサイズは最大で72X72"
+" C2018_1. 問題フォーマットにて、盤面平面のサイズは最大で72X72"
 XSIZE_MAX=72
 YSIZE_MAX=72
-" C2017_2. 問題フォーマットにて、層数は最大で8"
+" C2018_2. 問題フォーマットにて、層数は最大で8"
 LAYER_MAX=8
-" C2017_3. 問題フォーマットにて、各LINEの端点は2個（分岐しない）"
+" C2018_3. 問題フォーマットにて、各LINEの端点は2個（分岐しない）"
 LINE_TERMINAL_MAX=2
+" C2018_4. 隣接配線境界数係数"
+PARALLEL_COEFFICIENT=1/float(3)
 
 class NLCheck:
     "アルゴリズムデザインコンテスト（ナンバーリンクパズル）の回答チェック"
@@ -308,7 +311,7 @@ class NLCheck:
 
     def is_terminal(self, xmat, x, y, z):
         "線の端点か？"
-        # 端点とは? (ADC2017では３次元に拡張)
+        # 端点とは? (ADC2017から３次元に拡張)
         # 
         # □…注目点
         # 
@@ -344,7 +347,7 @@ class NLCheck:
 
     def is_branched(self, xmat, x, y, z):
         "線が枝分かれしているか？"
-        # 枝分かれとは? (ADC2017では３次元に拡張)
+        # 枝分かれとは? (ADC2017から３次元に拡張)
         # 
         # ■
         # □■
@@ -368,7 +371,7 @@ class NLCheck:
 
     def is_corner(self, xmat, x, y, z):
         "線が折れ曲がった角の場所か？"
-        # 折れ曲がり、コーナー、とは? (ADC2017では３次元に拡張)
+        # 折れ曲がり、コーナー、とは? (ADC2017から３次元に拡張)
         # 
         # ■
         # □■
@@ -480,7 +483,6 @@ class NLCheck:
                         judge = False
         return judge
 
-
     def check_5(self, input_data, xmat):
         "チェック5. 線はつながっている。"
         (size, line_num, line_mat) = input_data
@@ -524,12 +526,48 @@ class NLCheck:
                         corner[num] += 1
         if self.verbose: print "corner=", ["#%d:%d" % (i, c) for (i, c) in zip(range(nlines+1), corner)[1:]] # 線ごとの角の数
         return corner.sum()
-    
+
+    def get_extline(self, line, mat):
+        sz = mat.shape[0]
+        sy = mat.shape[1]
+        sx = mat.shape[2]
+        mst  = np.zeros( (sz,sy,sx), mat.dtype )
+        mst[0:sz+1, 0:sy+1, 0:sx+1] = mat
+        mst[mst!=line] = 0
+        mmat = np.zeros( (sz,sy,sx), mat.dtype )
+        mmat[0:sz+1, 0:sy+1, 0:sx+1] = mst
+        mmat[0:sz+1, 0:sy+1, 0:sx-1] |= mst[0:sz+1, 0:sy+1, 1:sx]
+        mmat[0:sz+1, 0:sy+1, 1:sx]   |= mst[0:sz+1, 0:sy+1, 0:sx-1]
+        mmat[0:sz+1, 0:sy-1, 0:sx+1] |= mst[0:sz+1, 1:sy,   0:sx+1]
+        mmat[0:sz+1, 1:sy,   0:sx+1] |= mst[0:sz+1, 0:sy-1, 0:sx+1]
+        mmat[mmat==line]=1
+        return mmat
+
+    def count_parallel(self, nlines, mat):
+        "並行区間の境界数を計算する"
+        sz = mat.shape[0]
+        sy = mat.shape[1]
+        sx = mat.shape[2]
+        cmp  = np.zeros( (sz,sy,sx), mat.dtype )
+        parallel = 0
+        for line1 in range(1, nlines):
+            mst_mat = self.get_extline(line1, mat)
+            if self.verbose: print mst_mat
+            for line2 in range(line1+1, nlines+1):
+                cmp[0:sz+1, 0:sy+1, 0:sx+1] = mat
+                cmp[cmp!=line2]=0
+                cmp[cmp==line2]=1
+                para_len = np.sum((cmp&mst_mat) == 1)
+                if 5 <= para_len: parallel += para_len
+        if self.verbose: print "parallel:", parallel
+        return parallel
+
     def quality(self, input_data, mat, xmat):
         "解の品質を計算する"
         total_length = self.line_length(input_data[1], mat)
         total_corner = self.count_corners(input_data[1], xmat)
-        q = 1.0 / float(total_length + total_corner)
+        total_parallel = self.count_parallel(input_data[1], mat)
+        q = 1.0 / float(total_length + total_corner + PARALLEL_COEFFICIENT*total_parallel)
         if self.verbose: print "quality=",q
         return q
 
